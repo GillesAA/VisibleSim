@@ -113,6 +113,10 @@ Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(const Catoms3DBlock *m,
                 continue;
             }
 
+            if (isBetweenOppositeOrDiagonalBlocks(lattice, tPos)) {
+                continue;
+            }
+
             // Determine pivot connectors and check if a possible path exists
             short conFrom = pivot->getConnectorId(m->position);
             short conTo = pivot->getConnectorId(tPos);
@@ -143,7 +147,7 @@ Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(const Catoms3DBlock *m,
                 // Mark pivot
                 if (link and matchingModuleLink)
                     allLinkPairs.emplace_back(pivot, matchingModuleLink);
-            }
+            }            
         }
     }
 
@@ -232,3 +236,33 @@ Catoms3DMotionEngine::getAllReachablePositions(const Catoms3DBlock *m,
     }
     return reachablePositions;
 }
+//Finding the positions between 2 opposite modules
+bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, const Cell3DPosition& tPos) {
+    
+    Cell3DPosition directions[] = {
+        Cell3DPosition(1, 0, 0), 
+        Cell3DPosition(0, 1, 0),
+    };
+
+    for (const auto& dir : directions) {
+        if (lattice->cellHasBlock(tPos + dir) && lattice->cellHasBlock(tPos - dir)) {
+            return true;
+        }
+    }
+
+    vector<pair<Cell3DPosition,Cell3DPosition>> diagonals = {
+        {Cell3DPosition(0, 0, 1), Cell3DPosition(1, 1, -1)},
+        {Cell3DPosition(0, 0, -1), Cell3DPosition(1, 1, 1)},
+        {Cell3DPosition(1, 0, -1), Cell3DPosition(0, 1, 1)},
+        {Cell3DPosition(0, 1, -1), Cell3DPosition(1, 0, 1)}
+    };
+
+    for (const auto& dir : diagonals) {
+        if (lattice->cellHasBlock(tPos + dir.first) && lattice->cellHasBlock(tPos + dir.second)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+

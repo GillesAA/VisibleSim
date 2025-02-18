@@ -166,6 +166,8 @@ public:
     getAllReachablePositions(const Catoms3DBlock* m,
                              RotationLinkType faceReq = RotationLinkType::Any);
 
+    static bool isBetweenOppositeOrDiagonalBlocks(Lattice *lattice, const Cell3DPosition &tPos);
+
     /**
      * Check if a 3D Catoms can reach the final position from the origin one
      * @param origin initial position of the module
