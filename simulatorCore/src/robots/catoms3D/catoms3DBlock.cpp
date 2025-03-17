@@ -171,6 +171,34 @@ namespace Catoms3D {
         pos = wrl->lattice->worldToGridPosition(realPos);
         return wrl->lattice->isInGrid(pos);
     }
+    
+    vector<pair<Cell3DPosition, uint8_t>> Catoms3DBlock::getAllFreeNeighborPos() const {
+        vector<pair<Cell3DPosition, uint8_t>> neighborPositions;
+        Catoms3DWorld *wrl = getWorld();
+        const Vector3D bs = wrl->lattice->gridScale;
+        auto lattice = Catoms3DWorld::getWorld()->lattice;
+        
+        // Iterate through all possible connectors
+        for(uint8_t connectorID = 0; connectorID < 12; connectorID++) {
+            Vector3D realPos;
+            realPos.set(tabConnectorPositions[connectorID], 3, 1);
+            realPos *= bs;
+            realPos.set(3, 1.0);
+            realPos = ((Catoms3DGlBlock *) ptrGlBlock)->mat * realPos;
+            
+            // Only add positions that are above ground
+            if (realPos[2] >= 0) {
+                Cell3DPosition pos = wrl->lattice->worldToGridPosition(realPos);
+                
+                // Only add positions that are within the grid and free
+                if (wrl->lattice->isInGrid(pos) && !lattice->cellHasBlock(pos)) {
+                    neighborPositions.emplace_back(pos, connectorID);
+                }
+            }
+        }
+        
+        return neighborPositions;
+    }
 
     P2PNetworkInterface *Catoms3DBlock::getInterface(const Cell3DPosition &pos) const {
         Catoms3DWorld *wrl = getWorld();
@@ -313,11 +341,30 @@ namespace Catoms3D {
         for (auto &elem: tab) {
             elem.second.init(((Catoms3DGlBlock *) ptrGlBlock)->mat);
             elem.second.getFinalPositionAndOrientation(finalPos, finalOrient);
-            cout << "Xpos:" << finalPos << endl;
+            // cout << "Xpos:" << finalPos << endl;
             if (lattice->isInGrid(finalPos) && lattice->isFree(finalPos)) {
                 res.emplace_back(pair<Cell3DPosition, uint8_t>(finalPos, finalOrient));
             }
         }
         return res;
     }
+
+std::map<Cell3DPosition, vector<pair<Cell3DPosition, uint8_t>>> Catoms3DBlock::getMotionsFromFreePositions() const {
+    std::map<Cell3DPosition, vector<pair<Cell3DPosition, uint8_t>>> motionGraph;
+
+    vector<pair<Cell3DPosition, uint8_t>> freePositions = getAllFreeNeighborPos();
+    
+    for(const auto& freePos : freePositions) {
+        // Catoms3DBlock* tempBlock = new Catoms3DBlock();
+        // tempBlock->setPosition(freePos);
+        
+        // vector<pair<Cell3DPosition, uint8_t>> possibleMotions = tempBlock->getAllMotions();
+        
+        // motionGraph[freePos] = possibleMotions;
+        
+        // delete tempBlock;
+    }
+    
+    return motionGraph;
+}
 }

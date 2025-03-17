@@ -115,6 +115,8 @@ namespace Catoms3D {
            @return return true if the cell is in the grid, false otherwise. */
         bool getNeighborPos(uint8_t connectorId, Cell3DPosition &pos) const override;
 
+        vector<pair<Cell3DPosition, uint8_t>> getAllFreeNeighborPos() const;
+
         /**
          * Gets a pointer to direct neighbor on connector conId
          * @param connectorId connector identifier
@@ -224,6 +226,7 @@ namespace Catoms3D {
          */
         virtual vector<pair<Cell3DPosition, uint8_t>> getAllMotions() const override;
 
+
         /**
          * Queries each of the module interface to determine the state of the local neighborhood.
          *  i.e., for each connector, if one module is connected or not
@@ -232,6 +235,8 @@ namespace Catoms3D {
          * @attention a P2PNetworkInterface at DIRECTION d = m corresponds to the interface that
          *  is located at the same location as interface #m when block is at orientation 0
          */
+        std::map<Cell3DPosition, vector<pair<Cell3DPosition, uint8_t>>> getMotionsFromFreePositions() const;
+        
         std::bitset<12> getLocalNeighborhoodState() const;
 
         /**

@@ -39,12 +39,12 @@ namespace Catoms3D {
     }
 
     void Catoms3DGlBlock::fireSelectedTrigger() {
-        /*Lattice *lattice = World::getWorld()->lattice;
-        const Cell3DPosition& bbPos = lattice->worldToGridPosition(getPosition());
-        Catoms3DBlock* catom = static_cast<Catoms3DBlock*>(lattice->getBlock(bbPos));
+        // Lattice *lattice = BaseSimulator::Lattice:
+        // const Cell3DPosition& bbPos = lattice->worldToGridPosition(getPosition());
+        // Catoms3DBlock* catom = static_cast<Catoms3DBlock*>(lattice->getBlock(bbPos));
 
-        // custom user debug procedure
-        if (catom and catom->blockCode) catom->blockCode->onBlockSelected();*/
+        // // custom user debug procedure
+        // if (catom and catom->blockCode) catom->blockCode->onBlockSelected();
     }
 
     string Catoms3DGlBlock::getInfo() const {

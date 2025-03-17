@@ -1,0 +1,37 @@
+<?xml version="1.0" standalone="no" ?>
+<world gridSize="40,40,40" windowSize="1800,900">
+    <camera target="99.7739,207.101,45.0787" directionSpherical="-1.35211,1.35211,380" angle="35.000000" near="75.000000" far="1500.000000" />
+    <spotlight target="-200,-200,-100" directionSpherical="60,30,900" angle="39.805571" />
+    <blockList blockSize="10,10,10">
+        <block position="10,6,4" color="127.5,127.5,127.5" orientation="0" />
+        <block position="11,6,4" color="127.5,127.5,127.5" orientation="0" />
+        <block position="11,6,5" color="127.5,127.5,127.5" orientation="0" />
+        <block position="12,7,6" color="127.5,127.5,127.5" orientation="0" />
+        <block position="11,6,7" color="127.5,127.5,127.5" orientation="0" />
+        <block position="11,6,8" color="127.5,127.5,127.5" orientation="0" />
+        <block position="10,6,8" color="127.5,127.5,127.5" orientation="0" />
+        <block position="9,5,7" color="127.5,127.5,127.5" orientation="0" />
+        <block position="9,5,6" color="127.5,127.5,127.5" orientation="0" />
+        <block position="9,5,5" color="127.5,127.5,127.5" orientation="0" />
+        <block position="14,6,4" color="127.5,127.5,127.5" orientation="0" />
+        <block position="15,6,4" color="127.5,127.5,127.5" orientation="0" />
+        <block position="15,5,5" color="127.5,127.5,127.5" orientation="0" />
+        <block position="16,5,6" color="127.5,127.5,127.5" orientation="0" />
+        <block position="15,5,7" color="127.5,127.5,127.5" orientation="0" />
+        <block position="15,6,8" color="127.5,127.5,127.5" orientation="0" />
+        <block position="14,6,8" color="127.5,127.5,127.5" orientation="0" />
+        <block position="13,6,7" color="127.5,127.5,127.5" orientation="0" />
+        <block position="13,7,6" color="127.5,127.5,127.5" orientation="0" />
+        <block position="13,6,5" color="127.5,127.5,127.5" orientation="0" />
+        <block position="12,6,10" color="0,255,0" orientation="2" />
+        <block position="9,4,9" color="0,255,0" orientation="7" />
+        <block position="11,5,8" color="0,255,0" orientation="3" />
+        <block position="10,5,12" color="0,255,0" orientation="8" />
+        <block position="11,5,12" color="0,255,0" orientation="3" />
+        <block position="11,5,9" color="0,255,0" orientation="2" />
+        <block position="9,4,10" color="0,255,0" orientation="1" />
+        <block position="10,5,8" color="0,255,0" orientation="5" />
+        <block position="11,5,11" color="0,255,0" orientation="0" />
+        <block position="9,4,11" color="0,255,0" orientation="0" />
+    </blockList>
+</world>
