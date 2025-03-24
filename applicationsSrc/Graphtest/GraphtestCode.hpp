@@ -38,7 +38,7 @@ private:
     P2PNetworkInterface* parent = nullptr;
     int nbWaitedAnswers = 0;
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdges;
-
+    bool ack = false;
     std::map<Cell3DPosition, Cell3DPosition> parentMap;
     std::vector<Cell3DPosition> discoveredPath;
 

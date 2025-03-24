@@ -88,10 +88,25 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
                 nbWaitedAnswers++;
             }
         }
-        // sendMessageToAllNeighbors("graph build", new MessageOf<Cell3DPosition>(BROADCAST_MSG_ID, currentPosition),10000,1000,0);
+        //This if case only applies if a module is at the end of a line and its only connection is its parent
+        if(nbWaitedAnswers==0){
+            console << "Graph edges:" << "\n";
+            for (const auto& edge : graphEdges) {
+                const Cell3DPosition& source = edge.first;
+                const std::vector<Cell3DPosition>& destinations = edge.second;
+                
+                console << "From "<< source << " to: ";
+                
+                for (const Cell3DPosition& dest : destinations) {
+                    console << dest << " ";
+                }
+                console << "\n";
+            }
+            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
+        }
     }
-    else{
-        // sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
+    else {
+        sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
         console << "Graph edges:" << "\n";
         for (const auto& edge : graphEdges) {
             const Cell3DPosition& source = edge.first;
@@ -111,8 +126,27 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
     MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>> *msg = static_cast<MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>*>(_msg.get());
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> prevGraph = *msg->getData();
     mergeGraphEdges(graphEdges, prevGraph);
-    sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
-
+    nbWaitedAnswers--;
+    console << "rec. Ack(" << nbWaitedAnswers << ") from " << sender->getConnectedBlockId() << "\n";
+    if(nbWaitedAnswers<=1){
+        if(parent==nullptr){
+            console << "Graph edges:" << "\n";
+            for (const auto& edge : graphEdges) {
+                const Cell3DPosition& source = edge.first;
+                const std::vector<Cell3DPosition>& destinations = edge.second;
+                
+                console << "From "<< source << " to: ";
+                
+                for (const Cell3DPosition& dest : destinations) {
+                    console << dest << " ";
+                }
+                console << "\n";
+            }
+        }
+        else{
+            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
+        }
+    }
 }
 
 // Function to merge two graph edge maps
