@@ -7,10 +7,6 @@
 
 using namespace Catoms3D;
 
-map<Cell3DPosition, vector<Cell3DPosition>> Graphtest::cells;
-vector<Cell3DPosition> Graphtest::visited;
-vector<Cell3DPosition> Graphtest::teleportedPositions;
-
 Graphtest::Graphtest(Catoms3DBlock *host): Catoms3DBlockCode(host) {
     if (not host) return;
 
@@ -34,32 +30,12 @@ void Graphtest::startup() {
     // console << "start\n";
     if (module->blockId == 1) {
         module->setColor(RED);
-        distance = 0;
-        //floodDistance();
         Cell3DPosition currentPosition = module->position;
-        cells[currentPosition] = vector<Cell3DPosition>();
-        // console << "Printing cells map:\n";
-        // for (const auto &entry : cells) {
-        //     // entry.first is the key (module->position)
-        //     // entry.second is the vector of Cell3DPosition
-        //     console << "Position: " << entry.first << " -> ";
-        //     console << "Connected Positions: ";
-        //     for (const auto &cellPos : entry.second) {
-        //         console << cellPos << " "; // Assuming operator<< is defined for Cell3DPosition
-        //     }
-        //     console << "\n";
-        // }
-        teleportedPositions.push_back(currentPosition);
         for(auto &pos: module->getAllMotions()) {
-           cells[currentPosition].push_back(pos.first);
-            visited.push_back(pos.first);
-            parentMap[pos.first] = currentPosition;
+           graphEdges[currentPosition].push_back(pos.first);
        }
        sendMessageToAllNeighbors("flood msg", new MessageOf<Cell3DPosition>(BROADCAST_MSG_ID, currentPosition),10000,1000,0);
-        // getScheduler()->schedule(new TeleportationStartEvent(getScheduler()->now() + 1000, module, *cells[currentPosition].begin()));
-        console << "First position in cells[currentPosition]: " << *cells[currentPosition].begin() << "\n";
     } else {
-        distance = -1;
         hostBlock->setColor(LIGHTGREY);
     }
 }
@@ -73,7 +49,7 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
         module->setColor(PURPLE);
         auto freeNeighbors = module->getAllFreeNeighborPos();
         for(const auto& [pos, connectorID] : freeNeighbors) {
-            console << "Free position: " << pos << " via connector: " << (int)connectorID << "\n";
+            // console << "Free position: " << pos << " via connector: " << (int)connectorID << "\n";
             for(const auto& [pos1, connectorIDto] : freeNeighbors){
                 const Catoms3DMotionRulesLink *linkH = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, HexaFace);
                 const Catoms3DMotionRulesLink *linkO = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, OctaFace);
@@ -90,35 +66,11 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
         }
         //This if case only applies if a module is at the end of a line and its only connection is its parent
         if(nbWaitedAnswers==0){
-            console << "Graph edges:" << "\n";
-            for (const auto& edge : graphEdges) {
-                const Cell3DPosition& source = edge.first;
-                const std::vector<Cell3DPosition>& destinations = edge.second;
-                
-                console << "From "<< source << " to: ";
-                
-                for (const Cell3DPosition& dest : destinations) {
-                    console << dest << " ";
-                }
-                console << "\n";
-            }
             sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
         }
     }
     else {
         sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
-        console << "Graph edges:" << "\n";
-        for (const auto& edge : graphEdges) {
-            const Cell3DPosition& source = edge.first;
-            const std::vector<Cell3DPosition>& destinations = edge.second;
-            
-            console << "From "<< source << " to: ";
-            
-            for (const Cell3DPosition& dest : destinations) {
-                console << dest << " ";
-            }
-            console << "\n";
-        }
     }
 }
 
@@ -139,6 +91,16 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
                 
                 for (const Cell3DPosition& dest : destinations) {
                     console << dest << " ";
+                }
+                console << "\n";
+            }
+            discoveredPath = a_star(graphEdges, module->position, currentTarget);
+            if (discoveredPath.empty()) {
+                console << "Path is empty.\n";
+            } else {
+                console << "Path:";
+                for (const Cell3DPosition& pos : discoveredPath) {
+                    console << " " << pos;  // No leading comma
                 }
                 console << "\n";
             }
@@ -177,161 +139,74 @@ void Graphtest::mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosit
         }
     }
 }
-/*
- void Graphtest::handleSampleMessage(std::shared_ptr<Message> _msg,
-                                               P2PNetworkInterface* sender) {
-    MessageOf<int>* msg = static_cast<MessageOf<int>*>(_msg.get());
-    int d = *msg->getData() + 1;
 
-    console << "Block " << module->blockId << " received distance = " << d
-            << " from " << sender->getConnectedBlockId() << "\n";
-
-    if (distance == -1 || d < distance) {
-        distance = d;
-        parent = sender;
-        console << "Block " << module->blockId << " adopts distance = " << distance << "\n";
-        floodDistance();
-    } else {
-        // No improvement, send back
-        sendMessage("Back", new MessageOf<int>(BACK_MSG_ID, distance), sender, 100, 200);
-    }#include "cell3DPosition.h"
+// Heuristic function (Euclidean distance)
+double Graphtest::heuristic(const Cell3DPosition& a, const Cell3DPosition& b) {
+    return sqrt(pow(a.pt[0] - b.pt[0], 2) + pow(a.pt[1] - b.pt[1] , 2) + pow(a.pt[2]  - b.pt[2] , 2));
 }
 
-void Graphtest::handleBackMessage(std::shared_ptr<Message> _msg, P2PNetworkInterface *sender) {
-    MessageOf<int> *msg = static_cast<MessageOf<int> *>(_msg.get());
-    nbWaitedAnswers--;
+std::vector<Cell3DPosition> Graphtest::a_star(const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& graphEdges, Cell3DPosition start, Cell3DPosition goal){
+    // Comparator for priority queue (min-heap)
+    struct Compare {
+        bool operator()(const std::pair<int, Cell3DPosition>& a, const std::pair<int, Cell3DPosition>& b) {
+            return a.first > b.first;  // Min-heap: lower cost has higher priority
+        }
+    };
+    std::priority_queue<std::pair<int, Cell3DPosition>, std::vector<std::pair<int, Cell3DPosition>>, Compare> frontier;
+    frontier.push({0, start});
 
-    if (nbWaitedAnswers == 0) {
-        if (parent) {
-            // Not leader, propagate back
-            sendMessage("Back", new MessageOf<int>(BACK_MSG_ID, distance), parent, 100, 200);
-        } else {
-            // Leader: gradient is stable
-            console << "Gradient construction complete. All distances are stable.\n";
+    // A* Maps for tracking the shortest path and costs
+    std::unordered_map<Cell3DPosition, Cell3DPosition, Cell3DPosition::Hash> came_from;
+    std::unordered_map<Cell3DPosition, int, Cell3DPosition::Hash> cost_so_far;
+    came_from[start] = start;
+    cost_so_far[start] = 0;
+    
+    while (!frontier.empty()) {
+        Cell3DPosition current = frontier.top().second;
+        frontier.pop();
 
-            // Example: run A* from leader (1) to some goal node (e.g., 5)
-            int goalId = 33;
-            std::vector<int> path = runAStar(1, goalId);
-            if (!path.empty()) {
-                console << "A* Path from 1 to " << goalId << ": ";
-                for (int id : path) console << id << " ";
-                console << "\n";
-            } else {
-                console << "No path found from 1 to " << goalId << "\n";
+        if (current == goal) {
+            break;  // Stop when we reach the goal
+        }
+
+        if (graphEdges.find(current) == graphEdges.end()) {
+            console << "Node not found: " << current << "\n";
+            break;
+        }
+        
+        for (const Cell3DPosition& next : graphEdges.at(current)) {  // Get neighbors
+            int new_cost = cost_so_far[current] + 1;  // Edge cost is always 1
+
+            if (cost_so_far.find(next) == cost_so_far.end() || new_cost < cost_so_far[next]) {
+                cost_so_far[next] = new_cost;
+                int priority = new_cost + heuristic(goal, next);
+                frontier.push({priority, next});
+                came_from[next] = current;
             }
         }
     }
+
+    // Reconstruct path
+    std::vector<Cell3DPosition> path;
+    if (came_from.find(goal) == came_from.end()) {
+        console << "target not in graph \n";
+        return path;  // Return empty path if goal is unreachable
+    }
+
+    for (Cell3DPosition current = goal; current != start; current = came_from[current]) {
+        path.push_back(current);
+    }
+    path.push_back(start);
+    std::reverse(path.begin(), path.end());
+    return path;
 }
 
-void Graphtest::floodDistance() {
-    nbWaitedAnswers = 0;
-    for (int i = 0; i < module->getNbInterfaces(); i++) {
-        P2PNetworkInterface* neighborInterface = module->getInterface(i);
-        if (neighborInterface && neighborInterface->connectedInterface && neighborInterface != parent) {
-            sendMessage("Flood", new MessageOf<int>(SAMPLE_MSG_ID, distance), neighborInterface, 100, 100);
-            nbWaitedAnswers++;
-        }
-    }
-    if (nbWaitedAnswers == 0 && parent != nullptr) {
-        sendMessage("Back", new MessageOf<int>(BACK_MSG_ID, distance), parent, 100, 200);
-    }
-}
-
-*/
 void Graphtest::onMotionEnd() {
     // console << " has reached its destination\n";
 }
 
 void Graphtest::processLocalEvent(EventPtr pev) {
     Catoms3DBlockCode::processLocalEvent(pev);
-
-    switch (pev->eventType) {
-        case EVENT_TELEPORTATION_END:
-            // Return journey handling
-            if (isReturning) {
-                if (!discoveredPath.empty()) {
-                    // Get the next position in the return path
-                    Cell3DPosition nextPosition = discoveredPath.back();
-                    discoveredPath.pop_back(); // Remove it from the path
-
-                    // console << "Returning: Teleporting to " << nextPosition << "\n";
-
-                    // Schedule teleportation to the next position
-                    getScheduler()->schedule(
-                        new TeleportationStartEvent(getScheduler()->now() + 1000, module, nextPosition)
-                    );
-                } else {
-                    // Return journey complete
-                    // console << "Return journey complete. Back at the initial position.\n";
-                    isReturning = false; // Reset the flag
-                }
-            }
-            // Discovery phase handling
-            else if (!visited.empty() && module->position != Cell3DPosition(15, 0, 1)) {
-                // Get the next position to explore
-                Cell3DPosition nextPosition = visited.back();
-                visited.pop_back();
-                teleportedPositions.push_back(nextPosition);
-
-                // Track parent-child relationship
-                if (parentMap.find(nextPosition) == parentMap.end()) {
-                    parentMap[nextPosition] = module->position;
-                }
-
-                // Discover adjacent positions
-                for (auto &pos : module->getAllMotions()) {
-                    cells[module->position].push_back(pos.first);
-                    if (std::find(visited.begin(), visited.end(), pos.first) == visited.end() &&
-                        std::find(teleportedPositions.begin(), teleportedPositions.end(), pos.first) == teleportedPositions.end()) {
-                        visited.push_back(pos.first);
-                        parentMap[pos.first] = module->position; // Track parent
-                    }
-                }
-
-                // Schedule the next teleportation
-                getScheduler()->schedule(
-                    new TeleportationStartEvent(getScheduler()->now() + 1000, module, nextPosition)
-                );
-            }
-            // Goal reached handling
-            else if (module->position == Cell3DPosition(15, 0, 1)) {
-                // console << "Goal reached. Reconstructing optimal path...\n";
-                isReturning = true; // Set return flag
-
-                // Backtrack from goal to start
-                discoveredPath.clear();
-                Cell3DPosition current = module->position;
-
-                while (parentMap.find(current) != parentMap.end()) {
-                    discoveredPath.push_back(current);
-                    current = parentMap[current];
-                }
-                discoveredPath.push_back(current); // Add the start position
-
-                std::reverse(discoveredPath.begin(), discoveredPath.end()); // Reverse to start-to-goal order
-
-                // Output the optimal path
-                console << "Optimal path from start to goal:\n";
-                for (auto &pos : discoveredPath) {
-                    console << pos << "\n";
-                }
-
-                // Start the return journey
-                if (!discoveredPath.empty()) {
-                    Cell3DPosition nextPosition = discoveredPath.back();
-                    discoveredPath.pop_back();
-
-                    // console << "Starting return journey: Teleporting to " << nextPosition << "\n";
-                    getScheduler()->schedule(
-                        new TeleportationStartEvent(getScheduler()->now() + 1000, module, nextPosition)
-                    );
-                }
-            }
-            break;
-
-        default:
-            break;
-    }
 }
 
 
@@ -381,87 +256,3 @@ std::string Graphtest::onInterfaceDraw() {
     trace << "Distance: " << distance;
     return trace.str();
 }
-
-/*
- std::vector<int> Graphtest::runAStar(int startId, int goalId) {
-    auto *world = (Catoms3DWorld*)BaseSimulator::getWorld();
-    if (!world->getBlockById(goalId)) {
-        console << "Goal block not found\n";
-        return {};
-    }
-
-    std::unordered_map<int, NodeRecord> records;
-    auto cmp = [&records](int lhs, int rhs) {
-        return records[lhs].fScore > records[rhs].fScore;
-    };
-    std::priority_queue<int, std::vector<int>, decltype(cmp)> openSet(cmp);
-
-    records[startId] = {0.0, heuristic(startId, goalId), -1};
-    openSet.push(startId);
-
-    std::unordered_set<int> closedSet;
-
-    while (!openSet.empty()) {
-        int current = openSet.top();
-        openSet.pop();
-
-        if (current == goalId) {
-            return reconstructPath(records, current);
-        }
-
-        closedSet.insert(current);
-
-        Catoms3DBlock *currentModule = world->getBlockById(current);
-        if (!currentModule) continue;
-
-        for (int i = 0; i < currentModule->getNbInterfaces(); i++) {
-            P2PNetworkInterface* neighborInterface = currentModule->getInterface(i);
-            if (!neighborInterface || !neighborInterface->connectedInterface) continue;
-            int neighborId = neighborInterface->connectedInterface->hostBlock->blockId;
-
-            if (closedSet.find(neighborId) != closedSet.end()) continue;
-
-            double tentative_gScore = records[current].gScore + 1.0;
-
-            if (records.find(neighborId) == records.end() || tentative_gScore < records[neighborId].gScore) {
-                records[neighborId].cameFrom = current;
-                records[neighborId].gScore = tentative_gScore;
-                records[neighborId].fScore = tentative_gScore + heuristic(neighborId, goalId);
-                openSet.push(neighborId);
-            }
-        }
-    }
-
-    return {};
-}
-
-std::vector<int> Graphtest::reconstructPath(std::unordered_map<int, NodeRecord> &records, int current) {
-    std::vector<int> path;
-    while (current != -1) {
-        path.push_back(current);
-        current = records[current].cameFrom;
-    }
-    std::reverse(path.begin(), path.end());
-    return path;
-}
-
-double Graphtest::heuristic(int currentId, int goalId) {
-    auto *world = (Catoms3DWorld*)BaseSimulator::getWorld();
-    Catoms3DBlock *cBlock = world->getBlockById(currentId);
-    Catoms3DBlock *gBlock = world->getBlockById(goalId);
-
-    if (!cBlock || !gBlock) return 0.0;
-
-    Graphtest *cCode = dynamic_cast<Graphtest*>(cBlock->blockCode);
-    Graphtest *gCode = dynamic_cast<Graphtest*>(gBlock->blockCode);
-
-    if (!cCode || !gCode) return 0.0;
-
-    int dC = cCode->distance;
-    int dG = gCode->distance;
-    if (dC == -1 || dG == -1) return 0.0;
-
-    // Simple heuristic: absolute difference in their distances from the leader
-    return std::fabs((double)dC - (double)dG);
-}
-*/

@@ -19,6 +19,7 @@
 #include <string>
 #include <queue>
 #include <unordered_set>
+#include <unordered_map>
 #include <cmath>
 #include <algorithm>
 
@@ -38,16 +39,10 @@ private:
     P2PNetworkInterface* parent = nullptr;
     int nbWaitedAnswers = 0;
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdges;
-    bool ack = false;
-    std::map<Cell3DPosition, Cell3DPosition> parentMap;
     std::vector<Cell3DPosition> discoveredPath;
+    Cell3DPosition currentTarget = Cell3DPosition(15, 5, 6);
 
 public:
-    // Static members
-    static std::map<Cell3DPosition, std::vector<Cell3DPosition>> cells;
-    static std::vector<Cell3DPosition> visited;
-    static std::vector<Cell3DPosition> teleportedPositions;
-
     // Constructor and destructor
     Graphtest(Catoms3DBlock *host);
     ~Graphtest() override {};
@@ -62,6 +57,10 @@ public:
     // Graph Functions
     void mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
         const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph);
+
+    double heuristic(const Cell3DPosition &a, const Cell3DPosition &b);
+
+    std::vector<Cell3DPosition> a_star(const std::map<Cell3DPosition, std::vector<Cell3DPosition>> &graphEdges, Cell3DPosition start, Cell3DPosition goal);
 
     // Event handlers
     void onBlockSelected() override;
@@ -87,3 +86,4 @@ public:
 };
 
 #endif /* CATOMS_TEST_1_BLOCK_CODE_H_ */
+
