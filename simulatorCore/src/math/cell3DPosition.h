@@ -54,6 +54,13 @@ public:
     friend const Cell3DPosition operator *(const Cell3DPosition&,const Cell3DPosition&);
     friend const Cell3DPosition operator *(int,const Cell3DPosition&);
 
+
+    struct Hash {
+        std::size_t operator()(const Cell3DPosition& pos) const {
+            return std::hash<int>()(pos.pt[0]) ^ (std::hash<int>()(pos.pt[1]) << 1) ^ (std::hash<int>()(pos.pt[2]) << 2);
+        }
+    };
+
     /**
      * Serializes (converts to a stream of bits) the Cell3DPosition
      *  for the purpose of simulation replay
