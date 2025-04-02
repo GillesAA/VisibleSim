@@ -52,7 +52,6 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
         for(const auto& [pos, connectorID] : freeNeighbors) {
             int connectorintID = static_cast<int>(connectorID);
             console << "Connector: " << "(" << connectorintID << ", " << pos << " is connected to : " << "\n";
-            // console << "Free position: " << pos << " via connector: " << (int)connectorID << "\n";
             for(const auto& [pos1, connectorIDto] : freeNeighbors){
                 const Catoms3DMotionRulesLink *linkH = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, HexaFace);
                 const Catoms3DMotionRulesLink *linkO = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, OctaFace);
