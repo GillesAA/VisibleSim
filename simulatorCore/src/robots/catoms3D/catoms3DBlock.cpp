@@ -349,22 +349,22 @@ namespace Catoms3D {
         return res;
     }
 
-std::map<Cell3DPosition, vector<pair<Cell3DPosition, uint8_t>>> Catoms3DBlock::getMotionsFromFreePositions() const {
-    std::map<Cell3DPosition, vector<pair<Cell3DPosition, uint8_t>>> motionGraph;
+// std::map<Cell3DPosition, vector<pair<Cell3DPosition, uint8_t>>> Catoms3DBlock::getMotionsFromFreePositions() const {
+//     std::map<Cell3DPosition, vector<pair<Cell3DPosition, uint8_t>>> motionGraph;
 
-    vector<pair<Cell3DPosition, uint8_t>> freePositions = getAllFreeNeighborPos();
+//     vector<pair<Cell3DPosition, uint8_t>> freePositions = getAllFreeNeighborPos();
     
-    for(const auto& freePos : freePositions) {
-        // Catoms3DBlock* tempBlock = new Catoms3DBlock();
-        // tempBlock->setPosition(freePos);
+//     for(const auto& freePos : freePositions) {
+//         // Catoms3DBlock* tempBlock = new Catoms3DBlock();
+//         // tempBlock->setPosition(freePos);
         
-        // vector<pair<Cell3DPosition, uint8_t>> possibleMotions = tempBlock->getAllMotions();
+//         // vector<pair<Cell3DPosition, uint8_t>> possibleMotions = tempBlock->getAllMotions();
         
-        // motionGraph[freePos] = possibleMotions;
+//         // motionGraph[freePos] = possibleMotions;
         
-        // delete tempBlock;
-    }
+//         // delete tempBlock;
+//     }
     
-    return motionGraph;
-}
+//     return motionGraph;
+// }
 }

@@ -39,8 +39,9 @@ private:
     P2PNetworkInterface* parent = nullptr;
     int nbWaitedAnswers = 0;
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdges;
+    std::map<int, std::vector<int>> graphConnectors;
     std::vector<Cell3DPosition> discoveredPath;
-    Cell3DPosition currentTarget = Cell3DPosition(15, 5, 6);
+    Cell3DPosition currentTarget = Cell3DPosition(17, 5, 6);
 
 public:
     // Constructor and destructor
@@ -57,6 +58,8 @@ public:
     // Graph Functions
     void mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
         const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph);
+
+    void mergeGraphEdgesInt(std::map<int, std::vector<int>> &targetGraph, const std::map<int, std::vector<int>> &sourceGraph);
 
     double heuristic(const Cell3DPosition &a, const Cell3DPosition &b);
 

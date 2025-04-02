@@ -34,7 +34,7 @@ void Graphtest::startup() {
         for(auto &pos: module->getAllMotions()) {
            graphEdges[currentPosition].push_back(pos.first);
        }
-       sendMessageToAllNeighbors("flood msg", new MessageOf<Cell3DPosition>(BROADCAST_MSG_ID, currentPosition),10000,1000,0);
+       nbWaitedAnswers = sendMessageToAllNeighbors("flood msg", new MessageOf<Cell3DPosition>(BROADCAST_MSG_ID, currentPosition),10000,1000,0);
     } else {
         hostBlock->setColor(LIGHTGREY);
     }
@@ -43,20 +43,27 @@ void Graphtest::startup() {
 void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
     MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
     Cell3DPosition target = *msg->getData();
+    Catoms3DWorld *world = Catoms3D::getWorld();
     if (parent==nullptr){
         Cell3DPosition currentPosition = module->position;
         parent = sender;
         module->setColor(PURPLE);
         auto freeNeighbors = module->getAllFreeNeighborPos();
         for(const auto& [pos, connectorID] : freeNeighbors) {
+            int connectorintID = static_cast<int>(connectorID);
+            console << "Connector: " << "(" << connectorintID << ", " << pos << " is connected to : " << "\n";
             // console << "Free position: " << pos << " via connector: " << (int)connectorID << "\n";
             for(const auto& [pos1, connectorIDto] : freeNeighbors){
                 const Catoms3DMotionRulesLink *linkH = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, HexaFace);
                 const Catoms3DMotionRulesLink *linkO = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, OctaFace);
-                if (linkH!=nullptr || linkO!=nullptr){
+                if ((linkH != nullptr || linkO != nullptr) && !Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(world->lattice, pos1)){
+                    int connectorintIDto = static_cast<int>(connectorIDto);
+                    console << "(" << connectorintIDto << ", " << pos1 << ")\n";
+                    graphConnectors[connectorID].push_back(connectorIDto);
                     graphEdges[pos].push_back(pos1);
                 }
             }
+            console << "\n";
         }
         for(int i=0; i<module->getNbInterfaces(); i++) {
             if(module->getInterface(i)->isConnected() and module->getInterface(i) != parent) {
@@ -80,7 +87,7 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
     mergeGraphEdges(graphEdges, prevGraph);
     nbWaitedAnswers--;
     console << "rec. Ack(" << nbWaitedAnswers << ") from " << sender->getConnectedBlockId() << "\n";
-    if(nbWaitedAnswers<=1){
+    if(nbWaitedAnswers==0){
         if(parent==nullptr){
             console << "Graph edges:" << "\n";
             for (const auto& edge : graphEdges) {
@@ -95,6 +102,7 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
                 console << "\n";
             }
             discoveredPath = a_star(graphEdges, module->position, currentTarget);
+            discoveredPath.erase(discoveredPath.begin());
             if (discoveredPath.empty()) {
                 console << "Path is empty.\n";
             } else {
@@ -104,6 +112,8 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
                 }
                 console << "\n";
             }
+            getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, discoveredPath.front(), 
+            RotationLinkType::Any, false));
         }
         else{
             sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
@@ -136,6 +146,34 @@ void Graphtest::mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosit
         } else {
         // Position only exists in source graph, copy it to target
         targetGraph[sourcePos] = sourceConnections;
+        }
+    }
+}
+
+// Function to merge two graph edge maps with integer keys and values
+void Graphtest::mergeGraphEdgesInt(std::map<int, std::vector<int>>& targetGraph,
+    const std::map<int, std::vector<int>>& sourceGraph) {
+    for (const auto& sourceEdge : sourceGraph) {
+        const int& sourcePos = sourceEdge.first;
+        const std::vector<int>& sourceConnections = sourceEdge.second;
+
+        // Check if this position already exists in the target graph
+        if (targetGraph.find(sourcePos) != targetGraph.end()) {
+            // Position exists in both graphs, merge the vectors
+            std::vector<int>& targetConnections = targetGraph[sourcePos];
+
+            // For each connection in the source graph
+            for (const int& connection : sourceConnections) {
+                // Check if this connection already exists in the target
+                if (std::find(targetConnections.begin(), targetConnections.end(), connection)
+                == targetConnections.end()) {
+                    // Connection doesn't exist, add it
+                    targetConnections.push_back(connection);
+                }
+            }
+        } else {
+            // Position only exists in source graph, copy it to target
+            targetGraph[sourcePos] = sourceConnections;
         }
     }
 }
@@ -185,7 +223,6 @@ std::vector<Cell3DPosition> Graphtest::a_star(const std::map<Cell3DPosition, std
             }
         }
     }
-
     // Reconstruct path
     std::vector<Cell3DPosition> path;
     if (came_from.find(goal) == came_from.end()) {
@@ -207,6 +244,37 @@ void Graphtest::onMotionEnd() {
 
 void Graphtest::processLocalEvent(EventPtr pev) {
     Catoms3DBlockCode::processLocalEvent(pev);
+    switch (pev->eventType) {
+        case EVENT_ROTATION3D_END: {
+            module->setColor(BLUE);
+            if (!discoveredPath.empty()){
+                Cell3DPosition nextPosition;
+                while (!discoveredPath.empty() && discoveredPath.front() == module->position) {
+                    discoveredPath.erase(discoveredPath.begin());
+                }
+                if (!discoveredPath.empty()) {
+                    nextPosition = discoveredPath.front();
+                    for (const Cell3DPosition& pos : discoveredPath) {
+                        console << " " << pos;  // No leading comma
+                    }
+                    console << "\n";
+                    console << "Connected Positions: ";
+                    for(auto &pos: module->getAllMotions()){
+                        console << pos.first << " ";
+                    }
+                    console << "\n";
+                }
+                console << "Current Position: " << module -> position << "\n";
+                console << "Next Position: " << nextPosition << "\n";
+                discoveredPath.erase(discoveredPath.begin()); // Remove it from the path
+                getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, nextPosition, 
+                RotationLinkType::Any, false));
+            }
+        }break;
+        default:
+            break;
+
+    }
 }
 
 
