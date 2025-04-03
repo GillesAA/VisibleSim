@@ -76,6 +76,7 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
             sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
         }
     }
+    //Some of the modules that have received a flood will still receive a flood if the module isn't their parent this allows to remove them from the waited answers
     else if(nbWaitedAnswers>0){
         nbWaitedAnswers--;
         console << "nbWait: " << nbWaitedAnswers << "\n";
