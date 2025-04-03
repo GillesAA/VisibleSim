@@ -41,7 +41,7 @@ private:
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdges;
     std::map<int, std::vector<int>> graphConnectors;
     std::vector<Cell3DPosition> discoveredPath;
-    Cell3DPosition currentTarget = Cell3DPosition(17, 5, 6);
+    Cell3DPosition currentTarget = Cell3DPosition(15, 0, 1);
 
 public:
     // Constructor and destructor

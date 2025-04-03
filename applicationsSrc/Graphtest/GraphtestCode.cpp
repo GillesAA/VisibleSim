@@ -50,6 +50,7 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
         module->setColor(PURPLE);
         auto freeNeighbors = module->getAllFreeNeighborPos();
         for(const auto& [pos, connectorID] : freeNeighbors) {
+            graphEdges[pos];
             int connectorintID = static_cast<int>(connectorID);
             console << "Connector: " << "(" << connectorintID << ", " << pos << " is connected to : " << "\n";
             for(const auto& [pos1, connectorIDto] : freeNeighbors){
@@ -75,7 +76,15 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
             sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
         }
     }
-    else {
+    else if(nbWaitedAnswers>0){
+        nbWaitedAnswers--;
+        console << "nbWait: " << nbWaitedAnswers << "\n";
+        if(nbWaitedAnswers == 0) {
+            sendMessage("ack2parent", new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(
+                GRAPHBUILD_MSG_ID, graphEdges), parent, 1000, 100);
+        }
+    }
+    else{
         sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
     }
 }
@@ -231,6 +240,7 @@ std::vector<Cell3DPosition> Graphtest::a_star(const std::map<Cell3DPosition, std
 
     for (Cell3DPosition current = goal; current != start; current = came_from[current]) {
         path.push_back(current);
+        console << "Position in final path: " << current << "\n";
     }
     path.push_back(start);
     std::reverse(path.begin(), path.end());
