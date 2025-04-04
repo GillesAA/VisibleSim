@@ -18,7 +18,8 @@
 
 namespace Catoms3D {
 
-inline constexpr Cell3DPosition relReachablePosition[18] = {
+/*WARNING for vertical alignment only
+ * inline constexpr Cell3DPosition relReachablePosition[18] = {
     // -2
     Cell3DPosition(1,1,-2),
 
@@ -46,8 +47,40 @@ inline constexpr Cell3DPosition relReachablePosition[18] = {
 
     // 2
     Cell3DPosition(-1, -1, 2),
-};
+};*/
 
+    inline constexpr Cell3DPosition relReachablePosition[] = {
+            // up
+            Cell3DPosition(-1,-1,+1),
+            Cell3DPosition(-1,+1,+1),
+            Cell3DPosition(-1, 0,+1),
+            Cell3DPosition( 0, 0,+1),
+            Cell3DPosition( 0,+1,+1),
+            Cell3DPosition( 0,-1,+1),
+            Cell3DPosition(+1, 0,+1),
+            Cell3DPosition(+1,+1,+1),
+
+            // down
+            Cell3DPosition(-1,-1,-1),
+            Cell3DPosition(-1, 0,-1),
+            Cell3DPosition( 0, 0,-1),
+            Cell3DPosition( 0,+1,-1),
+            Cell3DPosition( 0,-1,-1),
+            Cell3DPosition(+1, 0,-1),
+            Cell3DPosition(+1,+1,-1),
+
+            // 0
+            Cell3DPosition(-1,-1, 0),
+            Cell3DPosition(-1, 0 ,0),
+            Cell3DPosition(-1,+1, 0),
+            Cell3DPosition( 0,-1,0),
+            Cell3DPosition( 0, 0,-2),
+            Cell3DPosition( 0, 0,+2),
+            Cell3DPosition( 0,+1,0),
+            Cell3DPosition(+1,-1,0),
+            Cell3DPosition(+1, 0,0),
+            Cell3DPosition(+1,+1,0),
+    };
 
 class Catoms3DMotionEngine {
     // FIXME: World is a poor container for this
@@ -166,14 +199,18 @@ public:
     getAllReachablePositions(const Catoms3DBlock* m,
                              RotationLinkType faceReq = RotationLinkType::Any);
 
-    static bool isBetweenOppositeOrDiagonalBlocks(Lattice *lattice, const Cell3DPosition &tPos);
-
     /**
      * Check if a 3D Catoms can reach the final position from the origin one
      * @param origin initial position of the module
      * @param final final position after one motion
      */
     static bool isNotLockedForMotion(const Cell3DPosition &origin,const Cell3DPosition &final, bool isHexaFace);
+
+    //Finding the positions between 2 opposite modules, this version does not check for the current module's position used to build graphs in a distributed way
+    static bool isBetweenOppositeOrDiagonalBlocks(Lattice *lattice, const Cell3DPosition &tPos);
+
+    //Finding the positions between 2 opposite modules, this version is to use during the movement of a module
+    static bool isBetweenOppositeOrDiagonalBlocks(Lattice *lattice, const Cell3DPosition &tPos, const Cell3DPosition &mPos);
 };
 
 }

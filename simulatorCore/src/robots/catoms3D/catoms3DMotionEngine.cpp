@@ -113,7 +113,7 @@ Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(const Catoms3DBlock *m,
                 continue;
             }
 
-            if (isBetweenOppositeOrDiagonalBlocks(lattice, tPos)) {
+            if (isBetweenOppositeOrDiagonalBlocks(lattice, tPos, m->position)) {
                 continue;
             }
 
@@ -147,7 +147,7 @@ Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(const Catoms3DBlock *m,
                 // Mark pivot
                 if (link and matchingModuleLink)
                     allLinkPairs.emplace_back(pivot, matchingModuleLink);
-            }            
+            }
         }
     }
 
@@ -196,13 +196,13 @@ Catoms3DMotionEngine::getAllRotationsForModule(const Catoms3DBlock *m) {
         Cell3DPosition finalPos;
         short finalOrient;
         auto freeCells = World::getWorld()->lattice->getFreeNeighborCells(m->position);
-        cout << "#freeCells=" << freeCells.size() << endl;
+        //cout << "#freeCells=" << freeCells.size() << endl;
         for (const Cell3DPosition &nPos: freeCells) {
             const vector<std::pair<Catoms3DBlock *, const Catoms3DMotionRulesLink *>>
                     pivotLinkPairs = findPivotLinkPairsForTargetCell(m, nPos);
-            cout << "#pivotLinkPairs=" << pivotLinkPairs.size() << endl;
+            //cout << "#pivotLinkPairs=" << pivotLinkPairs.size() << endl;
             for (const auto &pair: pivotLinkPairs) {
-                cout << "pair" << pair.first->position << endl;
+                //cout << "pair" << pair.first->position << endl;
                 if (pair.first and pair.second) {
                     Catoms3DRotation r = pair.second->getRotations(m, pair.first);
                     // filter final position that are blocked by far away obstacle
@@ -236,7 +236,8 @@ Catoms3DMotionEngine::getAllReachablePositions(const Catoms3DBlock *m,
     }
     return reachablePositions;
 }
-//Finding the positions between 2 opposite modules
+
+//Finding the positions between 2 opposite modules, this version does not check for the current module's position used to build graphs in a distributed way
 bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, const Cell3DPosition& tPos) {
     
     Cell3DPosition directions[] = {
@@ -265,4 +266,47 @@ bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, c
 
     return false;
 }
+
+//Finding the positions between 2 opposite modules, this version is to use during the movement of a module
+bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, const Cell3DPosition& tPos, const Cell3DPosition& mPos) {
+    
+    Cell3DPosition directions[] = {
+        Cell3DPosition(1, 0, 0), 
+        Cell3DPosition(0, 1, 0),
+    };
+
+    for (const auto& dir : directions) {
+        Cell3DPosition pos1 = tPos + dir;
+        Cell3DPosition pos2 = tPos - dir;
+
+        bool hasBlock1 = (pos1 != mPos) && lattice->cellHasBlock(pos1);
+        bool hasBlock2 = (pos2 != mPos) && lattice->cellHasBlock(pos2);
+
+        if (hasBlock1 && hasBlock2) {
+            return true;
+        }
+    }
+
+    vector<pair<Cell3DPosition, Cell3DPosition>> diagonals = {
+        {Cell3DPosition(0, 0, 1), Cell3DPosition(1, 1, -1)},
+        {Cell3DPosition(0, 0, -1), Cell3DPosition(1, 1, 1)},
+        {Cell3DPosition(1, 0, -1), Cell3DPosition(0, 1, 1)},
+        {Cell3DPosition(0, 1, -1), Cell3DPosition(1, 0, 1)}
+    };
+
+    for (const auto& dir : diagonals) {
+        Cell3DPosition pos1 = tPos + dir.first;
+        Cell3DPosition pos2 = tPos + dir.second;
+
+        bool hasBlock1 = (pos1 != mPos) && lattice->cellHasBlock(pos1);
+        bool hasBlock2 = (pos2 != mPos) && lattice->cellHasBlock(pos2);
+
+        if (hasBlock1 && hasBlock2) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
