@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
 
 static const int BROADCAST_MSG_ID = 1001;
 static const int GRAPHBUILD_MSG_ID = 1002;
@@ -41,7 +42,7 @@ private:
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdges;
     std::map<int, std::vector<int>> graphConnectors;
     std::vector<Cell3DPosition> discoveredPath;
-    Cell3DPosition currentTarget = Cell3DPosition(15, 0, 1);
+    Cell3DPosition currentTarget = Cell3DPosition(17, 5, 6);
 
 public:
     // Constructor and destructor
@@ -59,7 +60,7 @@ public:
     void mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
         const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph);
 
-    void mergeGraphEdgesInt(std::map<int, std::vector<int>> &targetGraph, const std::map<int, std::vector<int>> &sourceGraph);
+    // void mergeGraphEdgesInt(std::map<int, std::vector<int>> &targetGraph, const std::map<int, std::vector<int>> &sourceGraph);
 
     double heuristic(const Cell3DPosition &a, const Cell3DPosition &b);
 

@@ -110,6 +110,25 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
                 }
                 console << "\n";
             }
+            std::ofstream outFile("graph_edges.txt");  // Open a file for writing
+
+            if (outFile.is_open()) {
+                outFile << "Graph edges:" << "\n";
+                for (const auto& edge : graphEdges) {
+                    const Cell3DPosition& source = edge.first;
+                    const std::vector<Cell3DPosition>& destinations = edge.second;
+
+                    outFile << "From " << source << " to: ";
+
+                    for (const Cell3DPosition& dest : destinations) {
+                        outFile << dest << " ";
+                    }
+                    outFile << "\n";
+                }
+                outFile.close();  // Always close the file
+            } else {
+                std::cerr << "Unable to open file for writing.\n";
+            }
             discoveredPath = a_star(graphEdges, module->position, currentTarget);
             discoveredPath.erase(discoveredPath.begin());
             if (discoveredPath.empty()) {
@@ -159,33 +178,33 @@ void Graphtest::mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosit
     }
 }
 
-// Function to merge two graph edge maps with integer keys and values
-void Graphtest::mergeGraphEdgesInt(std::map<int, std::vector<int>>& targetGraph,
-    const std::map<int, std::vector<int>>& sourceGraph) {
-    for (const auto& sourceEdge : sourceGraph) {
-        const int& sourcePos = sourceEdge.first;
-        const std::vector<int>& sourceConnections = sourceEdge.second;
+// // Function to merge two graph edge maps with integer keys and values
+// void Graphtest::mergeGraphEdgesInt(std::map<int, std::vector<int>>& targetGraph,
+//     const std::map<int, std::vector<int>>& sourceGraph) {
+//     for (const auto& sourceEdge : sourceGraph) {
+//         const int& sourcePos = sourceEdge.first;
+//         const std::vector<int>& sourceConnections = sourceEdge.second;
 
-        // Check if this position already exists in the target graph
-        if (targetGraph.find(sourcePos) != targetGraph.end()) {
-            // Position exists in both graphs, merge the vectors
-            std::vector<int>& targetConnections = targetGraph[sourcePos];
+//         // Check if this position already exists in the target graph
+//         if (targetGraph.find(sourcePos) != targetGraph.end()) {
+//             // Position exists in both graphs, merge the vectors
+//             std::vector<int>& targetConnections = targetGraph[sourcePos];
 
-            // For each connection in the source graph
-            for (const int& connection : sourceConnections) {
-                // Check if this connection already exists in the target
-                if (std::find(targetConnections.begin(), targetConnections.end(), connection)
-                == targetConnections.end()) {
-                    // Connection doesn't exist, add it
-                    targetConnections.push_back(connection);
-                }
-            }
-        } else {
-            // Position only exists in source graph, copy it to target
-            targetGraph[sourcePos] = sourceConnections;
-        }
-    }
-}
+//             // For each connection in the source graph
+//             for (const int& connection : sourceConnections) {
+//                 // Check if this connection already exists in the target
+//                 if (std::find(targetConnections.begin(), targetConnections.end(), connection)
+//                 == targetConnections.end()) {
+//                     // Connection doesn't exist, add it
+//                     targetConnections.push_back(connection);
+//                 }
+//             }
+//         } else {
+//             // Position only exists in source graph, copy it to target
+//             targetGraph[sourcePos] = sourceConnections;
+//         }
+//     }
+// }
 
 // Heuristic function (Euclidean distance)
 double Graphtest::heuristic(const Cell3DPosition& a, const Cell3DPosition& b) {
