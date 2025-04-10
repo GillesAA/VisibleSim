@@ -113,7 +113,7 @@ Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(const Catoms3DBlock *m,
                 continue;
             }
 
-            if (isBetweenOppositeOrDiagonalBlocks(lattice, tPos, m->position)) {
+            if (isBetweenOppositeOrDiagonalBlocks(lattice, tPos, m->position) || isBetweenOppositeOrDiagonalBlocks(lattice, m->position)) {
                 continue;
             }
 
@@ -237,11 +237,50 @@ Catoms3DMotionEngine::getAllReachablePositions(const Catoms3DBlock *m,
     return reachablePositions;
 }
 
+struct FloatPos {
+    float x, y, z;
+    
+    FloatPos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {}
+    
+    FloatPos(const Cell3DPosition& p) : z(p.pt[2]) {
+        // If z is even, offset x and y by -0.5
+        if (p.pt[2] % 2 == 0) {
+            x = p.pt[0] - 0.5f;
+            y = p.pt[1] - 0.5f;
+        } else {
+            x = p.pt[0];
+            y = p.pt[1];
+        }
+    }
+    
+    FloatPos operator+(const FloatPos& other) const {
+        return FloatPos(x + other.x, y + other.y, z + other.z);
+    }
+    
+    bool equalsInt(const Cell3DPosition& p) const {
+        if (p.pt[2] % 2 == 0) {
+            // For even z, account for the -0.5 offset
+            return (int)(x + 0.5f) == p.pt[0] && (int)(y + 0.5f) == p.pt[1] && (int)z == p.pt[2];
+        } else {
+            // For odd z, direct comparison
+            return (int)x == p.pt[0] && (int)y == p.pt[1] && (int)z == p.pt[2];
+        }
+    }
+    
+    Cell3DPosition toCell3DPosition() const {
+        if ((int)z % 2 == 0) {
+            return Cell3DPosition((short)(x + 0.5f), (short)(y + 0.5f), (short)(z + 0.5f));
+        } else {
+            return Cell3DPosition((short)(x + 0.5f), (short)(y + 0.5f), (short)(z + 0.5f));
+        }
+    }
+};
+
+
 //Finding the positions between 2 opposite modules, this version does not check for the current module's position used to build graphs in a distributed way
 bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, const Cell3DPosition& tPos) {
-    
     Cell3DPosition directions[] = {
-        Cell3DPosition(1, 0, 0), 
+        Cell3DPosition(1, 0, 0),
         Cell3DPosition(0, 1, 0),
     };
 
@@ -251,15 +290,19 @@ bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, c
         }
     }
 
-    vector<pair<Cell3DPosition,Cell3DPosition>> diagonals = {
-        {Cell3DPosition(0, 0, 1), Cell3DPosition(1, 1, -1)},
-        {Cell3DPosition(0, 0, -1), Cell3DPosition(1, 1, 1)},
-        {Cell3DPosition(1, 0, -1), Cell3DPosition(0, 1, 1)},
-        {Cell3DPosition(0, 1, -1), Cell3DPosition(1, 0, 1)}
+    FloatPos base(tPos);
+    std::vector<std::pair<FloatPos, FloatPos>> diagonals = {
+        {FloatPos(0.5f, -0.5f, -1), FloatPos(-0.5f, 0.5f, 1)},
+        {FloatPos(0.5f,  0.5f, -1), FloatPos(-0.5f, -0.5f, 1)},
+        {FloatPos(0.5f, -0.5f,  1), FloatPos(-0.5f, 0.5f, -1)},
+        {FloatPos(-0.5f, -0.5f, -1), FloatPos(0.5f, 0.5f, 1)}
     };
 
-    for (const auto& dir : diagonals) {
-        if (lattice->cellHasBlock(tPos + dir.first) && lattice->cellHasBlock(tPos + dir.second)) {
+    for (const auto& pair : diagonals) {
+        Cell3DPosition pos1 = (base + pair.first).toCell3DPosition();
+        Cell3DPosition pos2 = (base + pair.second).toCell3DPosition();
+
+        if (lattice->cellHasBlock(pos1) && lattice->cellHasBlock(pos2)) {
             return true;
         }
     }
@@ -267,11 +310,11 @@ bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, c
     return false;
 }
 
+
 //Finding the positions between 2 opposite modules, this version is to use during the movement of a module
 bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, const Cell3DPosition& tPos, const Cell3DPosition& mPos) {
-    
     Cell3DPosition directions[] = {
-        Cell3DPosition(1, 0, 0), 
+        Cell3DPosition(1, 0, 0),
         Cell3DPosition(0, 1, 0),
     };
 
@@ -287,19 +330,24 @@ bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, c
         }
     }
 
-    vector<pair<Cell3DPosition, Cell3DPosition>> diagonals = {
-        {Cell3DPosition(0, 0, 1), Cell3DPosition(1, 1, -1)},
-        {Cell3DPosition(0, 0, -1), Cell3DPosition(1, 1, 1)},
-        {Cell3DPosition(1, 0, -1), Cell3DPosition(0, 1, 1)},
-        {Cell3DPosition(0, 1, -1), Cell3DPosition(1, 0, 1)}
+    std::vector<std::pair<FloatPos, FloatPos>> diagonals = {
+        {FloatPos(0.5, -0.5, -1), FloatPos(-0.5, 0.5, 1)},
+        {FloatPos(0.5, 0.5, -1),  FloatPos(-0.5, -0.5, 1)},
+        {FloatPos(0.5, -0.5, 1),  FloatPos(-0.5, 0.5, -1)},
+        {FloatPos(-0.5, -0.5, -1), FloatPos(0.5, 0.5, 1)}
     };
 
-    for (const auto& dir : diagonals) {
-        Cell3DPosition pos1 = tPos + dir.first;
-        Cell3DPosition pos2 = tPos + dir.second;
+    FloatPos tPosF(tPos);
 
-        bool hasBlock1 = (pos1 != mPos) && lattice->cellHasBlock(pos1);
-        bool hasBlock2 = (pos2 != mPos) && lattice->cellHasBlock(pos2);
+    for (const auto& diag : diagonals) {
+        FloatPos pos1 = tPosF + diag.first;
+        FloatPos pos2 = tPosF + diag.second;
+
+        Cell3DPosition intPos1 = pos1.toCell3DPosition();
+        Cell3DPosition intPos2 = pos2.toCell3DPosition();
+
+        bool hasBlock1 = (!pos1.equalsInt(mPos)) && lattice->cellHasBlock(intPos1);
+        bool hasBlock2 = (!pos2.equalsInt(mPos)) && lattice->cellHasBlock(intPos2);
 
         if (hasBlock1 && hasBlock2) {
             return true;
@@ -308,5 +356,3 @@ bool Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(Lattice* lattice, c
 
     return false;
 }
-
-
