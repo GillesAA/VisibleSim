@@ -4,25 +4,8 @@ import re
 import numpy as np
 
 ### --- Step 1: Parse graph edges from .txt --- ###
-# def parse_graph_edges(file_path):
-#     edges = []
-#     with open(file_path, 'r') as file:
-#         text = file.read()
-
-#     pattern = r"From\s+\((\d+),(\d+),(\d+)\)\s+to:\s+((?:\(\d+,\d+,\d+\)\s*)+)"
-#     matches = re.findall(pattern, text)
-
-#     for match in matches:
-#         src = tuple(map(int, match[:3]))
-#         destinations = re.findall(r"\((\d+),(\d+),(\d+)\)", match[3])
-#         for dest in destinations:
-#             dest_pos = tuple(map(int, dest))
-#             edges.append((src, dest_pos))
-#     return edges
 def parse_graph_edges(file_path):
-    edges = set()
-    edge_counts = {}
-
+    edges = []
     with open(file_path, 'r') as file:
         text = file.read()
 
@@ -34,17 +17,8 @@ def parse_graph_edges(file_path):
         destinations = re.findall(r"\((\d+),(\d+),(\d+)\)", match[3])
         for dest in destinations:
             dest_pos = tuple(map(int, dest))
-            edge = (src, dest_pos)
-            edges.add(edge)
-            edge_counts[edge] = edge_counts.get(edge, 0) + 1
-
-    # Filter only bidirectional edges
-    bidirectional_edges = [
-        (a, b) for (a, b) in edges if (b, a) in edges
-    ]
-
-    return bidirectional_edges
-
+            edges.append((src, dest_pos))
+    return edges
 
 ### --- Step 2: Parse positions from XML --- ###
 def parse_block_positions(xml_path):
@@ -162,8 +136,8 @@ def plot_3d_graph(edges, block_positions, path=None):
 
 ### --- Main --- ###
 if __name__ == "__main__":
-    graph_file = "applicationsBin/AstarMMmvt/graph_edges.txt"
-    xml_file = "applicationsBin/AstarMMmvt/Jad_cube10.xml"
+    graph_file = "applicationsBin/Graphtest/graph_edges.txt"
+    xml_file = "applicationsBin/Graphtest/config.xml"
 
     edges = parse_graph_edges(graph_file)
     blocks = parse_block_positions(xml_file)

@@ -35,6 +35,7 @@
      Catoms3DBlock *module = nullptr;
  
      // Member variables
+     bool isfree= false;
      int distance = -1;
      bool isReturning = false;
      P2PNetworkInterface* parent = nullptr;
@@ -73,6 +74,9 @@
  
      // GUI interface
      string onInterfaceDraw() override;
+
+     void parseUserBlockElements(TiXmlElement *config);
+
  
      void parseUserElements(TiXmlDocument *config) override;
  

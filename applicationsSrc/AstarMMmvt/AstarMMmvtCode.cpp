@@ -30,7 +30,7 @@ AstarMMmvt::AstarMMmvt(Catoms3DBlock *host): Catoms3DBlockCode(host) {
 
 void AstarMMmvt::startup() {
     // console << "start\n";
-    if (module->blockId == 1) {
+    if (isfree) {
         if (!AstarMMmvt::targetQueue.empty()) {
             currentTarget = Cell3DPosition(AstarMMmvt::targetQueue.front()[0], AstarMMmvt::targetQueue.front()[1], AstarMMmvt::targetQueue.front()[2]);
             console << currentTarget << "\n";
@@ -119,15 +119,6 @@ void AstarMMmvt::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterf
             }
 
             discoveredPath = a_star(graphEdges, module->position, currentTarget);
-            if (discoveredPath.empty()) {
-                console << "Path is empty.\n";
-            } else {
-                console << "Path:";
-                for (const Cell3DPosition& pos : discoveredPath) {
-                    console << " " << pos;  // No leading comma
-                }
-                console << "\n";
-            }
 
             std::ofstream outFile("graph_edges.txt");  // Open a file for writing
 
@@ -157,6 +148,17 @@ void AstarMMmvt::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterf
             } else {
                 std::cerr << "Unable to open file for writing.\n";
             }
+            
+            if (discoveredPath.empty()) {
+                console << "Path is empty.\n";
+            } else {
+                console << "Path:";
+                for (const Cell3DPosition& pos : discoveredPath) {
+                    console << " " << pos;  // No leading comma
+                }
+                console << "\n";
+            }
+
             discoveredPath.erase(discoveredPath.begin());
             getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, discoveredPath.front(), 
             RotationLinkType::Any, false));
@@ -306,6 +308,11 @@ void AstarMMmvt::onBlockSelected() {
 
 void AstarMMmvt::onAssertTriggered() {
     console << " has triggered an assert\n";
+}
+
+void AstarMMmvt::parseUserBlockElements(TiXmlElement *config) {
+    const char *attr = config->Attribute("isfree");
+    isfree = (attr?Simulator::extractBoolFromString(attr):false);
 }
 
 void AstarMMmvt::parseUserElements(TiXmlDocument *config) {
