@@ -225,21 +225,30 @@ std::vector<Cell3DPosition> Graphtest::a_star(const std::map<Cell3DPosition, std
     came_from[start] = start;
     cost_so_far[start] = 0;
     
+    Cell3DPosition closest = start;
+    int closest_h = heuristic(goal, start);  // Initial heuristic
+
     while (!frontier.empty()) {
         Cell3DPosition current = frontier.top().second;
         frontier.pop();
 
+        int current_h = heuristic(goal, current);
+        if (current_h < closest_h) {
+            closest_h = current_h;
+            closest = current;
+        }
+
         if (current == goal) {
-            break;  // Stop when we reach the goal
+            break;  // Goal reached
         }
 
         if (graphEdges.find(current) == graphEdges.end()) {
             console << "Node not found: " << current << "\n";
             break;
         }
-        
-        for (const Cell3DPosition& next : graphEdges.at(current)) {  // Get neighbors
-            int new_cost = cost_so_far[current] + 1;  // Edge cost is always 1
+
+        for (const Cell3DPosition& next : graphEdges.at(current)) {
+            int new_cost = cost_so_far[current] + 1;  // Edge cost = 1
 
             if (cost_so_far.find(next) == cost_so_far.end() || new_cost < cost_so_far[next]) {
                 cost_so_far[next] = new_cost;
@@ -249,20 +258,26 @@ std::vector<Cell3DPosition> Graphtest::a_star(const std::map<Cell3DPosition, std
             }
         }
     }
-    // Reconstruct path
-    std::vector<Cell3DPosition> path;
-    if (came_from.find(goal) == came_from.end()) {
-        console << "target not in graph \n";
-        return path;  // Return empty path if goal is unreachable
+
+    // Decide whether to reconstruct from goal or closest reachable point
+    Cell3DPosition endpoint;
+    if (came_from.find(goal) != came_from.end()) {
+        endpoint = goal;
+    } else {
+        console << "Goal not reachable, finding path to closest reachable point.\n";
+        endpoint = closest;
     }
 
-    for (Cell3DPosition current = goal; current != start; current = came_from[current]) {
+    // Reconstruct path
+    std::vector<Cell3DPosition> path;
+    for (Cell3DPosition current = endpoint; current != start; current = came_from[current]) {
         path.push_back(current);
         console << "Position in final path: " << current << "\n";
     }
     path.push_back(start);
     std::reverse(path.begin(), path.end());
     return path;
+
 }
 
 void Graphtest::onMotionEnd() {
