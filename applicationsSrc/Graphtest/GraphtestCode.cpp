@@ -7,6 +7,8 @@
 
 using namespace Catoms3D;
 
+std::queue<std::array<int, 3>> Graphtest::targetQueue;
+
 Graphtest::Graphtest(Catoms3DBlock *host): Catoms3DBlockCode(host) {
     if (not host) return;
 
@@ -18,6 +20,9 @@ Graphtest::Graphtest(Catoms3DBlock *host): Catoms3DBlockCode(host) {
     addMessageEventFunc2(GRAPHBUILD_MSG_ID,
                         std::bind(&Graphtest::myGraphBuildFunc,this,
                                     std::placeholders::_1, std::placeholders::_2));
+    addMessageEventFunc2(PATH_MSG_ID,
+                        std::bind(&Graphtest::myPathFunc,this,
+                                    std::placeholders::_1, std::placeholders::_2));
     /*
     addMessageEventFunc2(BACK_MSG_ID,
         std::bind(&Graphtest::handleBackMessage, this,
@@ -28,7 +33,12 @@ Graphtest::Graphtest(Catoms3DBlock *host): Catoms3DBlockCode(host) {
 
 void Graphtest::startup() {
     // console << "start\n";
-    if (module->blockId == 1) {
+    if (module->blockId == 26) {
+        if (!Graphtest::targetQueue.empty()) {
+            currentTarget = Cell3DPosition(Graphtest::targetQueue.front()[0], Graphtest::targetQueue.front()[1], Graphtest::targetQueue.front()[2]);
+            console << currentTarget << "\n";
+            Graphtest::targetQueue.pop();
+        }
         module->setColor(RED);
         Cell3DPosition currentPosition = module->position;
         for(auto &pos: module->getAllMotions()) {
@@ -52,7 +62,7 @@ void Graphtest::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfac
         for(const auto& [pos, connectorID] : freeNeighbors) {
             graphEdges[pos];
             int connectorintID = static_cast<int>(connectorID);
-            console << "Connector: " << "(" << connectorintID << ", " << pos << " is connected to : " << "\n";
+            console << "Connector: " << connectorintID << ", " << pos << " is connected to : " << "\n";
             for(const auto& [pos1, connectorIDto] : freeNeighbors){
                 const Catoms3DMotionRulesLink *linkH = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, HexaFace);
                 const Catoms3DMotionRulesLink *linkO = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, OctaFace);
@@ -110,6 +120,21 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
                 }
                 console << "\n";
             }
+
+            discoveredPath = a_star(graphEdges, module->position, currentTarget);
+            if (discoveredPath.empty()) {
+                console << "Path is empty.\n";
+            } else {
+                console << "Path:";
+                for (const Cell3DPosition& pos : discoveredPath) {
+                    console << " " << pos;  // No leading comma
+                }
+                console << "\n";
+                discoveredPath.erase(discoveredPath.begin());
+                getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, discoveredPath.front(), 
+                RotationLinkType::Any, false));
+            }
+
             std::ofstream outFile("graph_edges.txt");  // Open a file for writing
 
             if (outFile.is_open()) {
@@ -125,28 +150,29 @@ void Graphtest::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
                     }
                     outFile << "\n";
                 }
+                if (discoveredPath.empty()) {
+                    outFile << "Path is empty.\n";
+                } else {
+                    outFile << "Path:";
+                    for (const Cell3DPosition& pos : discoveredPath) {
+                        outFile << " " << pos;  // No leading comma
+                    }
+                    outFile << "\n";
+                }
                 outFile.close();  // Always close the file
             } else {
                 std::cerr << "Unable to open file for writing.\n";
             }
-            discoveredPath = a_star(graphEdges, module->position, currentTarget);
-            discoveredPath.erase(discoveredPath.begin());
-            if (discoveredPath.empty()) {
-                console << "Path is empty.\n";
-            } else {
-                console << "Path:";
-                for (const Cell3DPosition& pos : discoveredPath) {
-                    console << " " << pos;  // No leading comma
-                }
-                console << "\n";
-            }
-            getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, discoveredPath.front(), 
-            RotationLinkType::Any, false));
         }
         else{
             sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
         }
     }
+}
+
+void Graphtest::myPathFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
+    MessageOf<std::vector<Cell3DPosition>> *msg = static_cast<MessageOf<std::vector<Cell3DPosition>>*>(_msg.get());
+    discoveredPath = *msg->getData();
 }
 
 // Function to merge two graph edge maps
@@ -177,34 +203,6 @@ void Graphtest::mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosit
         }
     }
 }
-
-// // Function to merge two graph edge maps with integer keys and values
-// void Graphtest::mergeGraphEdgesInt(std::map<int, std::vector<int>>& targetGraph,
-//     const std::map<int, std::vector<int>>& sourceGraph) {
-//     for (const auto& sourceEdge : sourceGraph) {
-//         const int& sourcePos = sourceEdge.first;
-//         const std::vector<int>& sourceConnections = sourceEdge.second;
-
-//         // Check if this position already exists in the target graph
-//         if (targetGraph.find(sourcePos) != targetGraph.end()) {
-//             // Position exists in both graphs, merge the vectors
-//             std::vector<int>& targetConnections = targetGraph[sourcePos];
-
-//             // For each connection in the source graph
-//             for (const int& connection : sourceConnections) {
-//                 // Check if this connection already exists in the target
-//                 if (std::find(targetConnections.begin(), targetConnections.end(), connection)
-//                 == targetConnections.end()) {
-//                     // Connection doesn't exist, add it
-//                     targetConnections.push_back(connection);
-//                 }
-//             }
-//         } else {
-//             // Position only exists in source graph, copy it to target
-//             targetGraph[sourcePos] = sourceConnections;
-//         }
-//     }
-// }
 
 // Heuristic function (Euclidean distance)
 double Graphtest::heuristic(const Cell3DPosition& a, const Cell3DPosition& b) {
@@ -268,7 +266,7 @@ std::vector<Cell3DPosition> Graphtest::a_star(const std::map<Cell3DPosition, std
 }
 
 void Graphtest::onMotionEnd() {
-    // console << " has reached its destination\n";
+    module->setColor(RED);
 }
 
 void Graphtest::processLocalEvent(EventPtr pev) {
@@ -298,7 +296,49 @@ void Graphtest::processLocalEvent(EventPtr pev) {
                 discoveredPath.erase(discoveredPath.begin()); // Remove it from the path
                 getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, nextPosition, 
                 RotationLinkType::Any, false));
+            }else{
+                module->setColor(RED);
             }
+        }case EVENT_REMOVE_NEIGHBOR:{
+            module->setColor(CYAN);
+            if(isfree) {
+                if (!Graphtest::targetQueue.empty() && currentTarget == Cell3DPosition()) {
+                    module->setColor(BLUE);
+                    currentTarget = Cell3DPosition(Graphtest::targetQueue.front()[0], Graphtest::targetQueue.front()[1], Graphtest::targetQueue.front()[2]);
+                    console << currentTarget << "\n";
+                    Graphtest::targetQueue.pop();
+                    Cell3DPosition currentPosition = module->position;
+                    for(auto &pos: module->getAllMotions()) {
+                       graphEdges[currentPosition].push_back(pos.first);
+                    }
+                    console << "Graph edges:" << "\n";
+                    for (const auto& edge : graphEdges) {
+                        const Cell3DPosition& source = edge.first;
+                        const std::vector<Cell3DPosition>& destinations = edge.second;
+                        
+                        console << "From "<< source << " to: ";
+                        
+                        for (const Cell3DPosition& dest : destinations) {
+                            console << dest << " ";
+                        }
+                        console << "\n";
+                    }
+                    discoveredPath = a_star(graphEdges, module->position, currentTarget);
+                    if (discoveredPath.empty()) {
+                        console << "Path is empty.\n";
+                    } else {
+                        console << "Path:";
+                        for (const Cell3DPosition& pos : discoveredPath) {
+                            console << " " << pos;  // No leading comma
+                        }
+                        console << "\n";
+                        discoveredPath.erase(discoveredPath.begin());
+                        getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, discoveredPath.front(), 
+                        RotationLinkType::Any, false));
+                    }
+                }
+            }
+            
         }break;
         default:
             break;
@@ -314,6 +354,38 @@ void Graphtest::onBlockSelected() {
 
 void Graphtest::onAssertTriggered() {
     console << " has triggered an assert\n";
+}
+
+void Graphtest::parseUserBlockElements(TiXmlElement *config) {
+    const char *attr = config->Attribute("isfree");
+    isfree = (attr?Simulator::extractBoolFromString(attr):false);
+}
+
+void Graphtest::parseUserElements(TiXmlDocument *config) {
+
+    TiXmlElement *worldElement = config->RootElement();
+    if(worldElement == NULL) return;
+    TiXmlElement* targetList = worldElement->FirstChildElement()->NextSiblingElement()->NextSiblingElement()->NextSiblingElement();
+    if(!targetList) {
+        cerr << "No target positions provided" << endl;
+        return;
+    }
+    TiXmlElement* target = targetList->FirstChildElement();
+    TiXmlElement* cell = target->FirstChildElement();
+    while(cell){
+        string pos = cell->Attribute("position");
+        std::array<int, 3> coord;
+        std::stringstream ss(pos);
+        std::string val;
+        int i = 0;
+        
+        while (std::getline(ss, val, ',') && i < 3) {
+            coord[i++] = std::stoi(val);
+        }
+        targetQueue.push(coord);
+        cell = cell->NextSiblingElement("cell");
+    }
+
 }
 
 bool Graphtest::parseUserCommandLineArgument(int &argc, char **argv[]) {
@@ -350,6 +422,6 @@ bool Graphtest::parseUserCommandLineArgument(int &argc, char **argv[]) {
 
 std::string Graphtest::onInterfaceDraw() {
     std::stringstream trace;
-    trace << "Distance: " << distance;
+    trace << "Nb of modules " << BaseSimulator::getWorld()->getNbBlocks()  << "\n";
     return trace.str();
 }

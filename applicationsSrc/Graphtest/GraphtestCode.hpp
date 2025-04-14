@@ -26,6 +26,7 @@
 
 static const int BROADCAST_MSG_ID = 1001;
 static const int GRAPHBUILD_MSG_ID = 1002;
+static const int PATH_MSG_ID = 1002;
 
 using namespace Catoms3D;
 using std::string;
@@ -35,6 +36,7 @@ private:
     Catoms3DBlock *module = nullptr;
 
     // Member variables
+    bool isfree= false;
     int distance = -1;
     bool isReturning = false;
     P2PNetworkInterface* parent = nullptr;
@@ -42,9 +44,11 @@ private:
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdges;
     std::map<int, std::vector<int>> graphConnectors;
     std::vector<Cell3DPosition> discoveredPath;
-    Cell3DPosition currentTarget = Cell3DPosition(17, 5, 6);
+    Cell3DPosition currentTarget;
 
 public:
+
+    static std::queue<std::array<int, 3>> targetQueue;
     // Constructor and destructor
     Graphtest(Catoms3DBlock *host);
     ~Graphtest() override {};
@@ -55,12 +59,11 @@ public:
     // MSG function
     void myBroadcastFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
     void myGraphBuildFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
+    void myPathFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
 
     // Graph Functions
     void mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
         const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph);
-
-    // void mergeGraphEdgesInt(std::map<int, std::vector<int>> &targetGraph, const std::map<int, std::vector<int>> &sourceGraph);
 
     double heuristic(const Cell3DPosition &a, const Cell3DPosition &b);
 
@@ -74,12 +77,15 @@ public:
     // GUI interface
     string onInterfaceDraw() override;
 
+    void parseUserBlockElements(TiXmlElement *config);
+
+    void parseUserElements(TiXmlDocument *config) override;
+
     // Command-line arguments
     bool parseUserCommandLineArgument(int &argc, char **argv[]) override;
 
     // Additional helper methods
     void onAssertTriggered();
-    void floodDistance();
 
     /*****************************************************************************/
     /** Needed to associate code to module                                      **/
@@ -89,5 +95,5 @@ public:
     /*****************************************************************************/
 };
 
-#endif /* CATOMS_TEST_1_BLOCK_CODE_H_ */
+#endif 
 
