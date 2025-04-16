@@ -163,7 +163,7 @@ def plot_3d_graph(edges, block_positions, path=None):
 ### --- Main --- ###
 if __name__ == "__main__":
     graph_file = "applicationsBin/AstarMMmvt/graph_edges.txt"
-    xml_file = "applicationsBin/AstarMMmvt/Jad_cube.xml"
+    xml_file = "applicationsBin/AstarMMmvt/Jad_cube10.xml"
 
     edges = parse_graph_edges(graph_file)
     blocks = parse_block_positions(xml_file)

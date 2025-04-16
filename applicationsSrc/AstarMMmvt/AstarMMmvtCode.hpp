@@ -24,8 +24,8 @@
  #include <algorithm>
  #include <fstream>
  
- static const int BROADCAST_MSG_ID = 1001;
- static const int GRAPHBUILD_MSG_ID = 1002;
+ static const int GRAPHBUILD_MSG_ID = 1001;
+ static const int GRAPHMERGE_MSG_ID = 1002;
  
  using namespace Catoms3D;
  using std::string;
@@ -56,8 +56,8 @@
      void startup() override;
  
      // MSG function
-     void myBroadcastFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
      void myGraphBuildFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
+     void myGraphMergeFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
  
      // Graph Functions
      void mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 

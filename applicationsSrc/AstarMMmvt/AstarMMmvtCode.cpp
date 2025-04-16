@@ -13,12 +13,12 @@ AstarMMmvt::AstarMMmvt(Catoms3DBlock *host): Catoms3DBlockCode(host) {
     if (not host) return;
 
     // Registers a callback (myBroadcastFunc) to the message of type R
-    addMessageEventFunc2(BROADCAST_MSG_ID,
-                        std::bind(&AstarMMmvt::myBroadcastFunc,this,
-                                    std::placeholders::_1, std::placeholders::_2));
-    // Registers a callback (myAcknowledgeFunc) to the message of type K
     addMessageEventFunc2(GRAPHBUILD_MSG_ID,
                         std::bind(&AstarMMmvt::myGraphBuildFunc,this,
+                                    std::placeholders::_1, std::placeholders::_2));
+    // Registers a callback (myAcknowledgeFunc) to the message of type K
+    addMessageEventFunc2(GRAPHMERGE_MSG_ID,
+                        std::bind(&AstarMMmvt::myGraphMergeFunc,this,
                                     std::placeholders::_1, std::placeholders::_2));
     /*
     addMessageEventFunc2(BACK_MSG_ID,
@@ -41,13 +41,13 @@ void AstarMMmvt::startup() {
         for(auto &pos: module->getAllMotions()) {
            graphEdges[currentPosition].push_back(pos.first);
        }
-       nbWaitedAnswers = sendMessageToAllNeighbors("flood msg", new MessageOf<Cell3DPosition>(BROADCAST_MSG_ID, currentPosition),10000,1000,0);
+       nbWaitedAnswers = sendMessageToAllNeighbors("flood msg", new MessageOf<Cell3DPosition>(GRAPHBUILD_MSG_ID, currentPosition),10000,1000,0);
     } else {
         hostBlock->setColor(LIGHTGREY);
     }
 }
 
-void AstarMMmvt::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
+void AstarMMmvt::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
     MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
     Cell3DPosition target = *msg->getData();
     Catoms3DWorld *world = Catoms3D::getWorld();
@@ -74,13 +74,13 @@ void AstarMMmvt::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
         }
         for(int i=0; i<module->getNbInterfaces(); i++) {
             if(module->getInterface(i)->isConnected() and module->getInterface(i) != parent) {
-                sendMessage("flood msg",new MessageOf<Cell3DPosition>(BROADCAST_MSG_ID, currentPosition),module->getInterface(i),1000,100);
+                sendMessage("flood msg",new MessageOf<Cell3DPosition>(GRAPHBUILD_MSG_ID, currentPosition),module->getInterface(i),1000,100);
                 nbWaitedAnswers++;
             }
         }
         //This if case only applies if a module is at the end of a line and its only connection is its parent
         if(nbWaitedAnswers==0){
-            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
+            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHMERGE_MSG_ID, graphEdges),parent,1000,100);
         }
     }
     //Some of the modules that have received a flood will still receive a flood if the module isn't their parent this allows to remove them from the waited answers
@@ -89,15 +89,15 @@ void AstarMMmvt::myBroadcastFunc(std::shared_ptr<Message>_msg, P2PNetworkInterfa
         console << "nbWait: " << nbWaitedAnswers << "\n";
         if(nbWaitedAnswers == 0) {
             sendMessage("ack2parent", new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(
-                GRAPHBUILD_MSG_ID, graphEdges), parent, 1000, 100);
+                GRAPHMERGE_MSG_ID, graphEdges), parent, 1000, 100);
         }
     }
     else{
-        sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
+        sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHMERGE_MSG_ID, graphEdges),parent,1000,100);
     }
 }
 
-void AstarMMmvt::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
+void AstarMMmvt::myGraphMergeFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
     MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>> *msg = static_cast<MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>*>(_msg.get());
     std::map<Cell3DPosition, std::vector<Cell3DPosition>> prevGraph = *msg->getData();
     mergeGraphEdges(graphEdges, prevGraph);
@@ -164,7 +164,7 @@ void AstarMMmvt::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterf
             RotationLinkType::Any, false));
         }
         else{
-            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHBUILD_MSG_ID, graphEdges),parent,1000,100);
+            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHMERGE_MSG_ID, graphEdges),parent,1000,100);
         }
     }
 }
@@ -275,7 +275,7 @@ std::vector<Cell3DPosition> AstarMMmvt::a_star(const std::map<Cell3DPosition, st
 }
 
 void AstarMMmvt::onMotionEnd() {
-    // console << " has reached its destination\n";
+    console << " has reached its destination\n";
 }
 
 void AstarMMmvt::processLocalEvent(EventPtr pev) {
