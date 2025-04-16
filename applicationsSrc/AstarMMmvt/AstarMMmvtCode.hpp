@@ -24,8 +24,15 @@
  #include <algorithm>
  #include <fstream>
  
+//GRAPH BUILDING MSGs
  static const int GRAPHBUILD_MSG_ID = 1001;
  static const int GRAPHMERGE_MSG_ID = 1002;
+
+//TRAFFIC LIGHT MSGs
+ static const int PLS_MSG_ID = 1003;
+ static const int GLO_MSG_ID = 1004;
+
+ enum States {STATIONARY, MOVING, BRIDGE};
  
  using namespace Catoms3D;
  using std::string;
@@ -44,6 +51,7 @@
      std::map<int, std::vector<int>> graphConnectors;
      std::vector<Cell3DPosition> discoveredPath;
      Cell3DPosition currentTarget = Cell3DPosition(20, 19, 0);
+     States moduleState = STATIONARY;
  
  public:
  
@@ -58,7 +66,9 @@
      // MSG function
      void myGraphBuildFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
      void myGraphMergeFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
- 
+     void myPLSFunc(std::shared_ptr<Message>_msg,P2PNetworkInterface *sender);
+     void myGLOFunc(std::shared_ptr<Message> _msg, P2PNetworkInterface *sender);
+
      // Graph Functions
      void mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
          const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph);

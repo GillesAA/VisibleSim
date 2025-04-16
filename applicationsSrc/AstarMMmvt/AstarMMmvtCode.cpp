@@ -20,17 +20,22 @@ AstarMMmvt::AstarMMmvt(Catoms3DBlock *host): Catoms3DBlockCode(host) {
     addMessageEventFunc2(GRAPHMERGE_MSG_ID,
                         std::bind(&AstarMMmvt::myGraphMergeFunc,this,
                                     std::placeholders::_1, std::placeholders::_2));
-    /*
-    addMessageEventFunc2(BACK_MSG_ID,
-        std::bind(&AstarMMmvt::handleBackMessage, this,
-                  std::placeholders::_1, std::placeholders::_2));
-*/
+
+    addMessageEventFunc2(PLS_MSG_ID,
+                        std::bind(&AstarMMmvt::myPLSFunc, this,
+                                    std::placeholders::_1, std::placeholders::_2));
+
+    addMessageEventFunc2(GLO_MSG_ID,
+                        std::bind(&AstarMMmvt::myGLOFunc, this,
+                                    std::placeholders::_1, std::placeholders::_2));
+
     module = static_cast<Catoms3DBlock*>(hostBlock);
 }
 
 void AstarMMmvt::startup() {
     // console << "start\n";
     if (isfree) {
+        moduleState = MOVING;
         if (!AstarMMmvt::targetQueue.empty()) {
             currentTarget = Cell3DPosition(AstarMMmvt::targetQueue.front()[0], AstarMMmvt::targetQueue.front()[1], AstarMMmvt::targetQueue.front()[2]);
             console << currentTarget << "\n";
@@ -49,7 +54,7 @@ void AstarMMmvt::startup() {
 
 void AstarMMmvt::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
     MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
-    Cell3DPosition target = *msg->getData();
+    // Cell3DPosition target = *msg->getData();
     Catoms3DWorld *world = Catoms3D::getWorld();
     if (parent==nullptr){
         Cell3DPosition currentPosition = module->position;
@@ -169,6 +174,21 @@ void AstarMMmvt::myGraphMergeFunc(std::shared_ptr<Message>_msg, P2PNetworkInterf
     }
 }
 
+void AstarMMmvt::myPLSFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender) {
+    MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
+    Cell3DPosition nextPosition = *msg->getData();
+    console << "MESSAGE RECEIVED\n";
+    sendMessage("ack2parent",new MessageOf<Cell3DPosition>(GLO_MSG_ID, nextPosition),sender,1000,100);
+}
+
+void AstarMMmvt::myGLOFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender) {
+    MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
+    Cell3DPosition nextPosition = *msg->getData();
+    console << "MESSAGE RECEIVED\n";
+    getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, nextPosition, 
+    RotationLinkType::Any, false));
+}
+
 // Function to merge two graph edge maps
 void AstarMMmvt::mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
     const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph) {
@@ -257,9 +277,11 @@ std::vector<Cell3DPosition> AstarMMmvt::a_star(const std::map<Cell3DPosition, st
     Cell3DPosition endpoint;
     if (came_from.find(goal) != came_from.end()) {
         endpoint = goal;
+        moduleState = MOVING;
     } else {
         console << "Goal not reachable, finding path to closest reachable point.\n";
         endpoint = closest;
+        moduleState = BRIDGE;
     }
 
     // Reconstruct path
@@ -276,43 +298,49 @@ std::vector<Cell3DPosition> AstarMMmvt::a_star(const std::map<Cell3DPosition, st
 
 void AstarMMmvt::onMotionEnd() {
     console << " has reached its destination\n";
+    if(moduleState == MOVING or moduleState == BRIDGE) {
+        module->setColor(ORANGE);
+        if (!discoveredPath.empty()){
+            Cell3DPosition nextPosition;
+            while (!discoveredPath.empty() && discoveredPath.front() == module->position) {
+                discoveredPath.erase(discoveredPath.begin());
+            }
+            if (!discoveredPath.empty()) {
+                nextPosition = discoveredPath.front();
+                for (const Cell3DPosition& pos : discoveredPath) {
+                    console << " " << pos;  
+                }
+                console << "\n";
+                console << "Connected Positions: ";
+                for(auto &pos: module->getAllMotions()){
+                    console << pos.first << " ";
+                }
+                console << "\n";
+            }
+            console << "Current Position: " << module -> position << "\n";
+            console << "Next Position: " << nextPosition << "\n";
+            discoveredPath.erase(discoveredPath.begin()); // Remove it from the path
+            getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, nextPosition, 
+            RotationLinkType::Any, false));
+        }
+    }
 }
 
 void AstarMMmvt::processLocalEvent(EventPtr pev) {
-    Catoms3DBlockCode::processLocalEvent(pev);
+   
     switch (pev->eventType) {
-        case EVENT_ROTATION3D_END: {
-            module->setColor(BLUE);
-            if (!discoveredPath.empty()){
-                Cell3DPosition nextPosition;
-                while (!discoveredPath.empty() && discoveredPath.front() == module->position) {
-                    discoveredPath.erase(discoveredPath.begin());
-                }
-                if (!discoveredPath.empty()) {
-                    nextPosition = discoveredPath.front();
-                    for (const Cell3DPosition& pos : discoveredPath) {
-                        console << " " << pos;  // No leading comma
-                    }
-                    console << "\n";
-                    console << "Connected Positions: ";
-                    for(auto &pos: module->getAllMotions()){
-                        console << pos.first << " ";
-                    }
-                    console << "\n";
-                }
-                console << "Current Position: " << module -> position << "\n";
-                console << "Next Position: " << nextPosition << "\n";
-                discoveredPath.erase(discoveredPath.begin()); // Remove it from the path
-                getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, nextPosition, 
-                RotationLinkType::Any, false));
-            }
-        }case EVENT_REMOVE_NEIGHBOR:{
+        case EVENT_ADD_NEIGHBOR:{
+            console << "ADDED NEIGHBOR \n";
+        }break;
+        case EVENT_REMOVE_NEIGHBOR:{
+            console << "REMOVED NEIGHBOR \n";
             module->setColor(CYAN);
         }break;
         default:
             break;
 
     }
+    Catoms3DBlockCode::processLocalEvent(pev);
 }
 
 
