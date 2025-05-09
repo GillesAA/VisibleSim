@@ -93,7 +93,7 @@ namespace BaseSimulator {
             console << " sends " << msgString << " to "
                     << dest->getConnectedBlockId() << " at " << t1 << "\n";
         else if (msg->isMessageHandleable())
-            console << " sends " << msg->getMessageName() << " to "
+            console << " Sends " << msg->getMessageName() << " to "
                     << dest->getConnectedBlockId() << " at " << t1 << "\n";
 
 #ifdef DEBUG_MESSAGES
@@ -123,6 +123,7 @@ namespace BaseSimulator {
 
         return ret;
     }
+
 
     map<short, P2PNetworkInterface *> BlockCode::getAllConnectedInterfaces() {
         map<short, P2PNetworkInterface *> res;

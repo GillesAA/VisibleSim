@@ -20,7 +20,9 @@ APPDIR = ../../applicationsBin/$(current_dir)
 # You will find instructions below on how to edit the Makefile to fit your needs.
 #
 # SRCS contains all the sources of your codeBlocks
-SRCS = AstarMMmvt.cpp AstarMMmvtCode.cpp
+SRCS = AstarMMmvt.cpp \
+	 AstarMMmvtCode.cpp \
+	 AstarMessages.cpp
 #
 # OUT is the output binary, where APPDIR is its enclosing directory
 OUT = $(APPDIR)/AstarMMmvt

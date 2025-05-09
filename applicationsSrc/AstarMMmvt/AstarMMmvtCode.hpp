@@ -23,6 +23,8 @@
  #include <cmath>
  #include <algorithm>
  #include <fstream>
+
+ #include "AstarMessages.hpp"
  
 //GRAPH BUILDING MSGs
  static const int GRAPHBUILD_MSG_ID = 1001;
@@ -32,18 +34,19 @@
  static const int PLS_MSG_ID = 1003;
  static const int GLO_MSG_ID = 1004;
 
- enum States {STATIONARY, MOVING, BRIDGE};
+ enum States {STATIONARY, FREE, MOVING, BRIDGE};
  
  using namespace Catoms3D;
  using std::string;
  
  class AstarMMmvt : public Catoms3DBlockCode {
- private:
-     Catoms3DBlock *module = nullptr;
+ protected:
  
-     // Member variables
+
+ 
+ public:
+ 
      bool isfree= false;
-     int distance = -1;
      bool isReturning = false;
      P2PNetworkInterface* parent = nullptr;
      int nbWaitedAnswers = 0;
@@ -52,10 +55,13 @@
      std::vector<Cell3DPosition> discoveredPath;
      Cell3DPosition currentTarget = Cell3DPosition(20, 19, 0);
      States moduleState = STATIONARY;
- 
- public:
- 
+
      static std::queue<std::array<int, 3>> targetQueue;
+     Scheduler *scheduler;
+     World *world;
+     Lattice *lattice;
+     Catoms3DBlock *module = nullptr;
+
      // Constructor and destructor
      AstarMMmvt(Catoms3DBlock *host);
      ~AstarMMmvt() override {};
@@ -85,6 +91,7 @@
      // GUI interface
      string onInterfaceDraw() override;
 
+
      void parseUserBlockElements(TiXmlElement *config);
 
  
@@ -95,7 +102,51 @@
  
      // Additional helper methods
      void onAssertTriggered();
+
+     //MOTION COORDINATION
+     bool greenLightIsOn = true;
+     bool moduleAwaitingGo = false;
+     Cell3DPosition awaitingModulePos = Cell3DPosition(-1, -1, -1);
+     P2PNetworkInterface *awaitingModuleProbeItf = NULL;
+     Cell3DPosition actuationTargetPos;
+     Cell3DPosition stepTargetPos;
+     Catoms3DBlock *stepPivot;
+     bool notFindingPivot = false;
+    
+     inline static Time getRoundDuration() {
+        Time duration = 0;
+
+        // Simulate actual motion of a catom
+        for (int i = 0; i < 2 * Catoms3DRotation::nbRotationSteps; i++) {
+            duration += Catoms3DRotation::getNextRotationEventDelay();
+        }
+
+        return duration;
+    }
  
+     bool rotating = false;
+
+     bool isAdjacentToPosition(const Cell3DPosition &pos) const;
+
+     Catoms3DBlock *findTargetLightAmongNeighbors(const Cell3DPosition &targetPos, const Cell3DPosition &srcPos) const;
+
+     Catoms3DBlock *findTargetLightAroundTarget(const Cell3DPosition &targetPos, const Cell3DPosition &finalPos) const;
+
+     void probeGreenLight();
+
+     Catoms3DBlock *customFindMotionPivot(const Catoms3DBlock *m, const Cell3DPosition &tPos, RotationLinkType faceReq);
+
+     #define SET_GREEN_LIGHT(x) setGreenLight(x, __LINE__)
+    /**
+     * Changes the light state of a pivot and take the appriopriate action
+     */
+    void setGreenLight(bool onoff, int _line_);
+
+
+    int sendHMessage(HandleableMessage *msg,P2PNetworkInterface *dest,Time t0,Time dt);
+
+    int sendHMessageToAllNeighbors(HandleableMessage *msg,Time t0,Time dt, int nexcept, ...);
+
      /*****************************************************************************/
      /** Needed to associate code to module                                      **/
      static BlockCode* buildNewBlockCode(BuildingBlock *host) {

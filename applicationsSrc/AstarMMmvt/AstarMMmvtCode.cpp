@@ -11,31 +11,13 @@ std::queue<std::array<int, 3>> AstarMMmvt::targetQueue;
 
 AstarMMmvt::AstarMMmvt(Catoms3DBlock *host): Catoms3DBlockCode(host) {
     if (not host) return;
-
-    // Registers a callback (myBroadcastFunc) to the message of type R
-    addMessageEventFunc2(GRAPHBUILD_MSG_ID,
-                        std::bind(&AstarMMmvt::myGraphBuildFunc,this,
-                                    std::placeholders::_1, std::placeholders::_2));
-    // Registers a callback (myAcknowledgeFunc) to the message of type K
-    addMessageEventFunc2(GRAPHMERGE_MSG_ID,
-                        std::bind(&AstarMMmvt::myGraphMergeFunc,this,
-                                    std::placeholders::_1, std::placeholders::_2));
-
-    addMessageEventFunc2(PLS_MSG_ID,
-                        std::bind(&AstarMMmvt::myPLSFunc, this,
-                                    std::placeholders::_1, std::placeholders::_2));
-
-    addMessageEventFunc2(GLO_MSG_ID,
-                        std::bind(&AstarMMmvt::myGLOFunc, this,
-                                    std::placeholders::_1, std::placeholders::_2));
-
     module = static_cast<Catoms3DBlock*>(hostBlock);
 }
 
 void AstarMMmvt::startup() {
     // console << "start\n";
     if (isfree) {
-        moduleState = MOVING;
+        moduleState = FREE;
         if (!AstarMMmvt::targetQueue.empty()) {
             currentTarget = Cell3DPosition(AstarMMmvt::targetQueue.front()[0], AstarMMmvt::targetQueue.front()[1], AstarMMmvt::targetQueue.front()[2]);
             console << currentTarget << "\n";
@@ -46,147 +28,10 @@ void AstarMMmvt::startup() {
         for(auto &pos: module->getAllMotions()) {
            graphEdges[currentPosition].push_back(pos.first);
        }
-       nbWaitedAnswers = sendMessageToAllNeighbors("flood msg", new MessageOf<Cell3DPosition>(GRAPHBUILD_MSG_ID, currentPosition),10000,1000,0);
+       nbWaitedAnswers = sendHMessageToAllNeighbors(new GraphBuildMessage(currentPosition),10000,1000,0);
     } else {
         hostBlock->setColor(LIGHTGREY);
     }
-}
-
-void AstarMMmvt::myGraphBuildFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
-    MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
-    // Cell3DPosition target = *msg->getData();
-    Catoms3DWorld *world = Catoms3D::getWorld();
-    if (parent==nullptr){
-        Cell3DPosition currentPosition = module->position;
-        parent = sender;
-        module->setColor(PURPLE);
-        auto freeNeighbors = module->getAllFreeNeighborPos();
-        for(const auto& [pos, connectorID] : freeNeighbors) {
-            graphEdges[pos];
-            int connectorintID = static_cast<int>(connectorID);
-            console << "Connector: " << connectorintID << ", " << pos << " is connected to : " << "\n";
-            for(const auto& [pos1, connectorIDto] : freeNeighbors){
-                const Catoms3DMotionRulesLink *linkH = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, HexaFace);
-                const Catoms3DMotionRulesLink *linkO = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, OctaFace);
-                if ((linkH != nullptr || linkO != nullptr) && !Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(world->lattice, pos1)){
-                    int connectorintIDto = static_cast<int>(connectorIDto);
-                    console << "(" << connectorintIDto << ", " << pos1 << ")\n";
-                    graphConnectors[connectorID].push_back(connectorIDto);
-                    graphEdges[pos].push_back(pos1);
-                }
-            }
-            console << "\n";
-        }
-        for(int i=0; i<module->getNbInterfaces(); i++) {
-            if(module->getInterface(i)->isConnected() and module->getInterface(i) != parent) {
-                sendMessage("flood msg",new MessageOf<Cell3DPosition>(GRAPHBUILD_MSG_ID, currentPosition),module->getInterface(i),1000,100);
-                nbWaitedAnswers++;
-            }
-        }
-        //This if case only applies if a module is at the end of a line and its only connection is its parent
-        if(nbWaitedAnswers==0){
-            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHMERGE_MSG_ID, graphEdges),parent,1000,100);
-        }
-    }
-    //Some of the modules that have received a flood will still receive a flood if the module isn't their parent this allows to remove them from the waited answers
-    else if(nbWaitedAnswers>0){
-        nbWaitedAnswers--;
-        console << "nbWait: " << nbWaitedAnswers << "\n";
-        if(nbWaitedAnswers == 0) {
-            sendMessage("ack2parent", new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(
-                GRAPHMERGE_MSG_ID, graphEdges), parent, 1000, 100);
-        }
-    }
-    else{
-        sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHMERGE_MSG_ID, graphEdges),parent,1000,100);
-    }
-}
-
-void AstarMMmvt::myGraphMergeFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender){
-    MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>> *msg = static_cast<MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>*>(_msg.get());
-    std::map<Cell3DPosition, std::vector<Cell3DPosition>> prevGraph = *msg->getData();
-    mergeGraphEdges(graphEdges, prevGraph);
-    nbWaitedAnswers--;
-    console << "rec. Ack(" << nbWaitedAnswers << ") from " << sender->getConnectedBlockId() << "\n";
-    if(nbWaitedAnswers==0){
-        if(parent==nullptr){
-            console << "Graph edges:" << "\n";
-            for (const auto& edge : graphEdges) {
-                const Cell3DPosition& source = edge.first;
-                const std::vector<Cell3DPosition>& destinations = edge.second;
-                
-                console << "From "<< source << " to: ";
-                
-                for (const Cell3DPosition& dest : destinations) {
-                    console << dest << " ";
-                }
-                console << "\n";
-            }
-
-            discoveredPath = a_star(graphEdges, module->position, currentTarget);
-
-            std::ofstream outFile("graph_edges.txt");  // Open a file for writing
-
-            if (outFile.is_open()) {
-                outFile << "Graph edges:" << "\n";
-                for (const auto& edge : graphEdges) {
-                    const Cell3DPosition& source = edge.first;
-                    const std::vector<Cell3DPosition>& destinations = edge.second;
-
-                    outFile << "From " << source << " to: ";
-
-                    for (const Cell3DPosition& dest : destinations) {
-                        outFile << dest << " ";
-                    }
-                    outFile << "\n";
-                }
-                if (discoveredPath.empty()) {
-                    outFile << "Path is empty.\n";
-                } else {
-                    outFile << "Path:";
-                    for (const Cell3DPosition& pos : discoveredPath) {
-                        outFile << " " << pos;  // No leading comma
-                    }
-                    outFile << "\n";
-                }
-                outFile.close();  // Always close the file
-            } else {
-                std::cerr << "Unable to open file for writing.\n";
-            }
-            
-            if (discoveredPath.empty()) {
-                console << "Path is empty.\n";
-            } else {
-                console << "Path:";
-                for (const Cell3DPosition& pos : discoveredPath) {
-                    console << " " << pos;  // No leading comma
-                }
-                console << "\n";
-            }
-
-            discoveredPath.erase(discoveredPath.begin());
-            getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, discoveredPath.front(), 
-            RotationLinkType::Any, false));
-        }
-        else{
-            sendMessage("ack2parent",new MessageOf<std::map<Cell3DPosition, std::vector<Cell3DPosition>>>(GRAPHMERGE_MSG_ID, graphEdges),parent,1000,100);
-        }
-    }
-}
-
-void AstarMMmvt::myPLSFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender) {
-    MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
-    Cell3DPosition nextPosition = *msg->getData();
-    console << "MESSAGE RECEIVED\n";
-    sendMessage("ack2parent",new MessageOf<Cell3DPosition>(GLO_MSG_ID, nextPosition),sender,1000,100);
-}
-
-void AstarMMmvt::myGLOFunc(std::shared_ptr<Message>_msg, P2PNetworkInterface*sender) {
-    MessageOf<Cell3DPosition> *msg = static_cast<MessageOf<Cell3DPosition>*>(_msg.get());
-    Cell3DPosition nextPosition = *msg->getData();
-    console << "MESSAGE RECEIVED\n";
-    getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, nextPosition, 
-    RotationLinkType::Any, false));
 }
 
 // Function to merge two graph edge maps
@@ -327,8 +172,23 @@ void AstarMMmvt::onMotionEnd() {
 }
 
 void AstarMMmvt::processLocalEvent(EventPtr pev) {
-   
+    MessagePtr message;
+    stringstream info;
+
     switch (pev->eventType) {
+        case EVENT_RECEIVE_MESSAGE: {
+            message = (std::static_pointer_cast<NetworkInterfaceReceiveEvent>(pev))->message;
+
+            if (message->isMessageHandleable()) {
+                std::shared_ptr<HandleableMessage> hMsg =
+                    (std::static_pointer_cast<HandleableMessage>(message));
+
+                console << " received " << hMsg->getName() << " from "
+                        << message->sourceInterface->hostBlock->blockId
+                        << " at " << getScheduler()->now() << "\n";
+                hMsg->handle(this);
+            }
+        }
         case EVENT_ADD_NEIGHBOR:{
             console << "ADDED NEIGHBOR \n";
         }break;
@@ -419,6 +279,78 @@ bool AstarMMmvt::parseUserCommandLineArgument(int &argc, char **argv[]) {
 
 std::string AstarMMmvt::onInterfaceDraw() {
     std::stringstream trace;
-    trace << "Nb of modules " << BaseSimulator::getWorld()->getNbBlocks()  << "\n";
+    trace << "Nb of modules " << BaseSimulator::getWorld()->getNbBlocks()  << "\n" << "Module State: " << moduleState << "\n";
     return trace.str();
 }
+
+int AstarMMmvt::sendHMessage(HandleableMessage *msg,P2PNetworkInterface *dest,Time t0,Time dt) {
+    return BlockCode::sendMessage(msg, dest, t0, dt);
+}
+
+int AstarMMmvt::sendHMessageToAllNeighbors(HandleableMessage *msg, Time t0, Time dt, int nexcept, ...) {
+    return BlockCode::sendMessageToAllNeighbors(msg, t0, dt, nexcept);
+}
+
+// /************************************************************************
+//  ************************* MOTION COORDINATION **************************
+//  ***********************************************************************/
+
+//  bool AstarMMmvt::isAdjacentToPosition(const Cell3DPosition& pos) const {
+//     return lattice->cellsAreAdjacent(module->position, pos);
+// }
+
+// void AstarMMmvt::probeGreenLight() {
+//     Cell3DPosition nextPos;
+
+//     Catoms3DBlock *pivot = customFindMotionPivot(module, stepTargetPos, Any);
+//     stepPivot = pivot;
+
+//     if (!pivot) {
+//         notFindingPivot = true;
+//         getScheduler()->schedule(new InterruptionEvent(
+//             getScheduler()->now() + getRoundDuration(),
+//             module, IT_MODE_FINDING_PIVOT));
+//         scheduler->trace("Reattempt finding pivot", module->blockId, PINK);
+//         return;
+//     }
+
+//     notFindingPivot = false;
+
+//     sendMessage(new ProbePivotLightStateMessage(module->position, stepTargetPos,
+//                                                 MeshComponent::Any),
+//                 module->getInterface(pivot->position), MSG_DELAY, 0);
+// }
+
+// void AstarMMmvt::setGreenLight(bool onoff, int _line_) {
+//     stringstream info;
+//     info << " light turned ";
+
+//     if (onoff) {
+//         info << "green: ";
+//         greenLightIsOn = true;
+//         module->setColor(GREEN);
+
+//         // Resume flow if needed
+//         if (moduleAwaitingGo) {
+//             bool nextToModule = isAdjacentToPosition(awaitingModulePos);
+
+//             P2PNetworkInterface* itf = nextToModule ?
+//                 module->getInterface(awaitingModulePos) :
+//                 // Move the message up the branch
+//                 awaitingModuleProbeItf;
+
+//             VS_ASSERT(itf and itf->isConnected());
+//             sendMessage(new GreenLightIsOnMessage(module->position, awaitingModulePos),
+//                         itf, MSG_DELAY, 0);
+//             moduleAwaitingGo = false;
+//             awaitingModuleProbeItf = NULL;
+//         }
+//     } else {
+//         info << "red: ";
+//         greenLightIsOn = false;
+//         module->setColor(RED);
+//     }
+
+//     info << _line_;
+//     getScheduler()->trace(info.str(),module->blockId, onoff ? GREEN : RED);
+// }
