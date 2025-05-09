@@ -52,7 +52,6 @@ void AstarMMmvt::mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosi
                 // Check if this connection already exists in the target
                 if (std::find(targetConnections.begin(), targetConnections.end(), connection) 
                 == targetConnections.end()) {
-                    // Connection doesn't exist, add it
                     targetConnections.push_back(connection);
                 }
             }
