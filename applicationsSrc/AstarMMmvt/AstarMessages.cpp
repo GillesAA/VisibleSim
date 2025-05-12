@@ -5,7 +5,6 @@
 
 void GraphBuildMessage::handle(BaseSimulator::BlockCode* bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
-    mabc.console << "HANDLING\n";
     Catoms3DBlock* module = mabc.module;
     Catoms3DWorld* world = Catoms3D::getWorld();
     P2PNetworkInterface* sender = module->getInterface(senderPos);
