@@ -189,10 +189,8 @@ void AstarMMmvt::processLocalEvent(EventPtr pev) {
             }
         }
         case EVENT_ADD_NEIGHBOR:{
-            console << "ADDED NEIGHBOR \n";
         }break;
         case EVENT_REMOVE_NEIGHBOR:{
-            console << "REMOVED NEIGHBOR \n";
             module->setColor(CYAN);
         }break;
         default:
