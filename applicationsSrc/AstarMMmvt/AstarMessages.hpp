@@ -36,10 +36,10 @@ class GraphBuildMessage : public HandleableMessage {
 
 class GraphMergeMessage : public HandleableMessage {
     protected:
-        std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdgesData;
+    std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>> graphEdgesData;
 
     public:
-        GraphMergeMessage(const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& graph) 
+        GraphMergeMessage(const std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>>& graph) 
         : HandleableMessage(), graphEdgesData(graph) {};
         virtual ~GraphMergeMessage() {};
     

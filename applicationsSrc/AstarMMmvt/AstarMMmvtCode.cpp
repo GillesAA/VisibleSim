@@ -23,68 +23,69 @@ void AstarMMmvt::startup() {
             console << currentTarget << "\n";
             AstarMMmvt::targetQueue.pop();
         }
-        module->setColor(RED);
+        module->setColor(PURPLE);
         Cell3DPosition currentPosition = module->position;
         for(auto &pos: module->getAllMotions()) {
-           graphEdges[currentPosition].push_back(pos.first);
+           graphEdges[currentPosition].emplace_back(pos.first, currentPosition);
        }
        nbWaitedAnswers = sendHMessageToAllNeighbors(new GraphBuildMessage(currentPosition),10000,1000,0);
     } else {
         hostBlock->setColor(LIGHTGREY);
+        module->setColor(GREEN);
     }
 }
 
 // Function to merge two graph edge maps
-void AstarMMmvt::mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
-    const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph) {
+void AstarMMmvt::mergeGraphEdges(
+    std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>>& targetGraph,
+    const std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>>& sourceGraph) {
 
-    for (const auto& sourceEdge : sourceGraph) {
-        const Cell3DPosition& sourcePos = sourceEdge.first;
-        const std::vector<Cell3DPosition>& sourceConnections = sourceEdge.second;
+    for (const auto& [sourcePos, sourcePairs] : sourceGraph) {
+        auto& targetPairs = targetGraph[sourcePos]; // creates if not exists
 
-        // Check if this position already exists in the target graph
-        if (targetGraph.find(sourcePos) != targetGraph.end()) {
-            // Position exists in both graphs, merge the vectors
-            std::vector<Cell3DPosition>& targetConnections = targetGraph[sourcePos];
+        for (const auto& [to, pivot] : sourcePairs) {
+            // Check if same destination already exists (regardless of pivot)
+            bool exists = std::any_of(targetPairs.begin(), targetPairs.end(),
+                [&](const std::pair<Cell3DPosition, Cell3DPosition>& existing) {
+                    return existing.first == to; // same destination
+                });
 
-            // For each connection in the source graph
-            for (const Cell3DPosition& connection : sourceConnections) {
-                // Check if this connection already exists in the target
-                if (std::find(targetConnections.begin(), targetConnections.end(), connection) 
-                == targetConnections.end()) {
-                    targetConnections.push_back(connection);
-                }
+            if (!exists) {
+                targetPairs.emplace_back(to, pivot);
             }
-        } else {
-        // Position only exists in source graph, copy it to target
-        targetGraph[sourcePos] = sourceConnections;
         }
     }
 }
+
 
 // Heuristic function (Euclidean distance)
 double AstarMMmvt::heuristic(const Cell3DPosition& a, const Cell3DPosition& b) {
     return sqrt(pow(a.pt[0] - b.pt[0], 2) + pow(a.pt[1] - b.pt[1] , 2) + pow(a.pt[2]  - b.pt[2] , 2));
 }
 
-std::vector<Cell3DPosition> AstarMMmvt::a_star(const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& graphEdges, Cell3DPosition start, Cell3DPosition goal){
-    // Comparator for priority queue (min-heap)
+std::vector<std::pair<Cell3DPosition, Cell3DPosition>> AstarMMmvt::a_star(
+    const std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>>& graphEdges,
+    Cell3DPosition start, Cell3DPosition goal) {
+
     struct Compare {
         bool operator()(const std::pair<int, Cell3DPosition>& a, const std::pair<int, Cell3DPosition>& b) {
-            return a.first > b.first;  // Min-heap: lower cost has higher priority
+            return a.first > b.first;
         }
     };
+
     std::priority_queue<std::pair<int, Cell3DPosition>, std::vector<std::pair<int, Cell3DPosition>>, Compare> frontier;
     frontier.push({0, start});
 
-    // A* Maps for tracking the shortest path and costs
     std::unordered_map<Cell3DPosition, Cell3DPosition, Cell3DPosition::Hash> came_from;
     std::unordered_map<Cell3DPosition, int, Cell3DPosition::Hash> cost_so_far;
+    std::unordered_map<Cell3DPosition, Cell3DPosition, Cell3DPosition::Hash> came_via_pivot;
+
     came_from[start] = start;
+    came_via_pivot[start] = Cell3DPosition();  // optional default/null pivot
     cost_so_far[start] = 0;
-    
+
     Cell3DPosition closest = start;
-    int closest_h = heuristic(goal, start);  // Initial heuristic
+    int closest_h = heuristic(goal, start);
 
     while (!frontier.empty()) {
         Cell3DPosition current = frontier.top().second;
@@ -96,49 +97,46 @@ std::vector<Cell3DPosition> AstarMMmvt::a_star(const std::map<Cell3DPosition, st
             closest = current;
         }
 
-        if (current == goal) {
-            break;  // Goal reached
-        }
+        if (current == goal)
+            break;
 
         if (graphEdges.find(current) == graphEdges.end()) {
             console << "Node not found: " << current << "\n";
             break;
         }
 
-        for (const Cell3DPosition& next : graphEdges.at(current)) {
-            int new_cost = cost_so_far[current] + 1;  // Edge cost = 1
+        for (const auto& [next, pivot] : graphEdges.at(current)) {
+            int new_cost = cost_so_far[current] + 1;
 
             if (cost_so_far.find(next) == cost_so_far.end() || new_cost < cost_so_far[next]) {
                 cost_so_far[next] = new_cost;
-                int priority = new_cost + heuristic(goal, next);
-                frontier.push({priority, next});
+                frontier.push({new_cost + heuristic(goal, next), next});
                 came_from[next] = current;
+                came_via_pivot[next] = pivot;
             }
         }
     }
 
-    // Decide whether to reconstruct from goal or closest reachable point
     Cell3DPosition endpoint;
     if (came_from.find(goal) != came_from.end()) {
         endpoint = goal;
         moduleState = MOVING;
     } else {
-        console << "Goal not reachable, finding path to closest reachable point.\n";
+        console << "Goal not reachable, using closest reachable point.\n";
         endpoint = closest;
         moduleState = BRIDGE;
     }
 
-    // Reconstruct path
-    std::vector<Cell3DPosition> path;
+    std::vector<std::pair<Cell3DPosition, Cell3DPosition>> path;
     for (Cell3DPosition current = endpoint; current != start; current = came_from[current]) {
-        path.push_back(current);
-        console << "Position in final path: " << current << "\n";
+        path.emplace_back(current, came_via_pivot[current]);
+        console << "Path step: " << current << " via pivot: " << came_via_pivot[current] << "\n";
     }
-    path.push_back(start);
+    path.emplace_back(start, Cell3DPosition());  // Start node, no pivot
     std::reverse(path.begin(), path.end());
     return path;
-
 }
+
 
 void AstarMMmvt::onMotionEnd() {
     console << " has reached its destination\n";
@@ -146,12 +144,12 @@ void AstarMMmvt::onMotionEnd() {
         module->setColor(ORANGE);
         if (!discoveredPath.empty()){
             Cell3DPosition nextPosition;
-            while (!discoveredPath.empty() && discoveredPath.front() == module->position) {
+            while (!discoveredPath.empty() && discoveredPath.front().first == module->position) {
                 discoveredPath.erase(discoveredPath.begin());
             }
             if (!discoveredPath.empty()) {
-                nextPosition = discoveredPath.front();
-                for (const Cell3DPosition& pos : discoveredPath) {
+                nextPosition = discoveredPath.front().first;
+                for (const auto& [pos, pivot] : discoveredPath) {
                     console << " " << pos;  
                 }
                 console << "\n";
@@ -189,9 +187,12 @@ void AstarMMmvt::processLocalEvent(EventPtr pev) {
             }
         }
         case EVENT_ADD_NEIGHBOR:{
+            if(moduleState != MOVING or moduleState != BRIDGE) break;
+            module->setColor(RED);
         }break;
         case EVENT_REMOVE_NEIGHBOR:{
-            module->setColor(CYAN);
+            if(moduleState != MOVING or moduleState != BRIDGE) break;
+            module->setColor(GREEN);
         }break;
         default:
             break;

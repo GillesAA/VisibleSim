@@ -35,6 +35,7 @@
  static const int GLO_MSG_ID = 1004;
 
  enum States {STATIONARY, FREE, MOVING, BRIDGE};
+ enum LStates {sGREEN, sRED, sORANGE};
  
  using namespace Catoms3D;
  using std::string;
@@ -50,11 +51,12 @@
      bool isReturning = false;
      P2PNetworkInterface* parent = nullptr;
      int nbWaitedAnswers = 0;
-     std::map<Cell3DPosition, std::vector<Cell3DPosition>> graphEdges;
+     std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>> graphEdges;
      std::map<int, std::vector<int>> graphConnectors;
-     std::vector<Cell3DPosition> discoveredPath;
+     std::vector<std::pair<Cell3DPosition, Cell3DPosition>> discoveredPath;
      Cell3DPosition currentTarget = Cell3DPosition(20, 19, 0);
      States moduleState = STATIONARY;
+     LStates moduleLightState = sGREEN;
 
      static std::queue<std::array<int, 3>> targetQueue;
      Scheduler *scheduler;
@@ -76,12 +78,13 @@
      void myGLOFunc(std::shared_ptr<Message> _msg, P2PNetworkInterface *sender);
 
      // Graph Functions
-     void mergeGraphEdges(std::map<Cell3DPosition, std::vector<Cell3DPosition>>& targetGraph, 
-         const std::map<Cell3DPosition, std::vector<Cell3DPosition>>& sourceGraph);
+     void mergeGraphEdges(std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>>& targetGraph,
+        const std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>>& sourceGraph);
  
      double heuristic(const Cell3DPosition &a, const Cell3DPosition &b);
  
-     std::vector<Cell3DPosition> a_star(const std::map<Cell3DPosition, std::vector<Cell3DPosition>> &graphEdges, Cell3DPosition start, Cell3DPosition goal);
+     std::vector<std::pair<Cell3DPosition, Cell3DPosition>> a_star(const std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>>& graphEdges,
+        Cell3DPosition start, Cell3DPosition goal);
  
      // Event handlers
      void onBlockSelected() override;

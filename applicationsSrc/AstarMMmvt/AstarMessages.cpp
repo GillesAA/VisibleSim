@@ -13,7 +13,7 @@ void GraphBuildMessage::handle(BaseSimulator::BlockCode* bc) {
     if (mabc.parent == nullptr) {
         Cell3DPosition currentPosition = module->position;
         mabc.parent = sender;
-        module->setColor(PURPLE);
+        module->setColor(GREEN);
         
         auto freeNeighbors = module->getAllFreeNeighborPos();
         for (const auto& [pos, connectorID] : freeNeighbors) {
@@ -28,8 +28,7 @@ void GraphBuildMessage::handle(BaseSimulator::BlockCode* bc) {
                 if ((linkH != nullptr || linkO != nullptr) && !Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(world->lattice, pos1)) {
                     int connectorintIDto = static_cast<int>(connectorIDto);
                     mabc.console << "(" << connectorintIDto << ", " << pos1 << ")\n";
-                    mabc.graphConnectors[connectorID].push_back(connectorIDto);
-                    mabc.graphEdges[pos].push_back(pos1);
+                    mabc.graphEdges[pos].emplace_back(pos1, currentPosition);
                 }
             }
             mabc.console << "\n";
@@ -88,7 +87,7 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
             for (const auto& edge : mabc.graphEdges) {
                 const Cell3DPosition& source = edge.first;
                 mabc.console << "From " << source << " to: ";
-                for (const Cell3DPosition& dest : edge.second) {
+                for (const auto& [dest, pivot] : edge.second) {
                     mabc.console << dest << " ";
                 }
                 mabc.console << "\n";
@@ -101,7 +100,7 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
                 outFile << "Graph edges:\n";
                 for (const auto& edge : mabc.graphEdges) {
                     outFile << "From " << edge.first << " to: ";
-                    for (const auto& dest : edge.second) {
+                    for (const auto& [dest, pivot] : edge.second) {
                         outFile << dest << " ";
                     }
                     outFile << "\n";
@@ -111,7 +110,7 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
                     outFile << "Path is empty.\n";
                 } else {
                     outFile << "Path:";
-                    for (const Cell3DPosition& pos : mabc.discoveredPath) {
+                    for (const auto& [pos, pivot] : mabc.discoveredPath) {
                         outFile << " " << pos;
                     }
                     outFile << "\n";
@@ -122,7 +121,7 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
             if (!mabc.discoveredPath.empty()) {
                 mabc.discoveredPath.erase(mabc.discoveredPath.begin());
                 getScheduler()->schedule(new Catoms3DRotationStartEvent(
-                    getScheduler()->now() + 1000, mabc.module, mabc.discoveredPath.front(),
+                    getScheduler()->now() + 1000, mabc.module, mabc.discoveredPath.front().first,
                     RotationLinkType::Any, false));
             } else {
                 mabc.console << "Path is empty.\n";
