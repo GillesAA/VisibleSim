@@ -146,7 +146,7 @@ std::vector<std::pair<Cell3DPosition, Cell3DPosition>> AstarMMmvt::a_star(
 }
 
 Catoms3DBlock* AstarMMmvt::customFindMotionPivot(const Catoms3DBlock* m, const Cell3DPosition& tPos, RotationLinkType faceReq) {
-    
+
     const auto &allLinkPairs = Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(m, tPos, faceReq);
 
     for (const auto& pair : allLinkPairs) {
@@ -159,7 +159,7 @@ Catoms3DBlock* AstarMMmvt::customFindMotionPivot(const Catoms3DBlock* m, const C
     if (pair.second->getMRLT() == faceReq or faceReq == RotationLinkType::Any)
     return pair.first;
     }
-
+    
     return NULL;
     }
 
