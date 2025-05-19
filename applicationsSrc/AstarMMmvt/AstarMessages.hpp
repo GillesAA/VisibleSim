@@ -49,7 +49,20 @@ class GraphMergeMessage : public HandleableMessage {
     
 };
     
-    
+class PLSMessage : public HandleableMessage {
+    protected:
+     Cell3DPosition tPos;
+ 
+    public:
+     PLSMessage(Cell3DPosition _tPos)
+         : HandleableMessage(), tPos(_tPos){};
+ 
+     ~PLSMessage() override = default;;
+ 
+     void handle(BaseSimulator::BlockCode *) override;
+     Message *clone() const override { return new PLSMessage(*this); }
+     string getName() const override { return "PLSMessage{" + tPos.to_string() + "}"; }
+ };
 
 class GLOMessage : public HandleableMessage {
     protected:

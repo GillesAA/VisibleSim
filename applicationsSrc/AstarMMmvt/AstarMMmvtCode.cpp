@@ -44,13 +44,21 @@ void AstarMMmvt::mergeGraphEdges(
         auto& targetPairs = targetGraph[sourcePos]; // creates if not exists
 
         for (const auto& [to, pivot] : sourcePairs) {
-            // Check if same destination already exists (regardless of pivot)
-            bool exists = std::any_of(targetPairs.begin(), targetPairs.end(),
-                [&](const std::pair<Cell3DPosition, Cell3DPosition>& existing) {
-                    return existing.first == to; // same destination
-                });
+            bool replaced = false;
 
-            if (!exists) {
+            for (auto& existing : targetPairs) {
+                if (existing.first == to) {
+                    if (existing.second == sourcePos && pivot != sourcePos) {
+                        console << "REPLACED: " << existing.second << ", WITH: " << pivot << "\n";
+                        // Replace bad self-pivot with better one
+                        existing.second = pivot;
+                    }
+                    replaced = true;
+                    break;
+                }
+            }
+
+            if (!replaced) {
                 targetPairs.emplace_back(to, pivot);
             }
         }
