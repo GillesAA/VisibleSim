@@ -120,8 +120,8 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
 
             if (!mabc.discoveredPath.empty()) {
                 mabc.discoveredPath.erase(mabc.discoveredPath.begin());
-                const auto &allLinkPairs = Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(mabc.module, mabc.discoveredPath.front().first, Any);
-                mabc.console << "Pivot: " << allLinkPairs.front().first->position << "\n";
+                auto pivot = mabc.customFindMotionPivot(mabc.module, mabc.discoveredPath.front().first, Any);
+                mabc.console << "Pivot: " << pivot->position << "\n";
                 getScheduler()->schedule(new Catoms3DRotationStartEvent(
                     getScheduler()->now() + 1000, mabc.module, mabc.discoveredPath.front().first,
                     RotationLinkType::Any, false));

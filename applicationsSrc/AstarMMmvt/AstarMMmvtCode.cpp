@@ -145,6 +145,26 @@ std::vector<std::pair<Cell3DPosition, Cell3DPosition>> AstarMMmvt::a_star(
     return path;
 }
 
+Catoms3DBlock* AstarMMmvt::customFindMotionPivot(const Catoms3DBlock* m,
+    const Cell3DPosition& tPos,
+    RotationLinkType faceReq) {
+const auto &allLinkPairs =
+Catoms3DMotionEngine::findPivotLinkPairsForTargetCell(m, tPos, faceReq);
+
+for (const auto& pair : allLinkPairs) {
+// Additional rule compared to Catoms3DMotionEngine::customFindMotionPivot:
+//  Make sure that pivot is not a FreeAgent (i.e., is part of scaffold)
+if (static_cast<AstarMMmvt*>(pair.first->blockCode)->moduleState == FREE)
+continue;
+
+// cout << "{ " << *pair.first << ", " << *pair.second << " }" << endl;
+if (pair.second->getMRLT() == faceReq or faceReq == RotationLinkType::Any)
+return pair.first;
+}
+
+return NULL;
+}
+
 
 void AstarMMmvt::onMotionEnd() {
     console << " has reached its destination\n";
