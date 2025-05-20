@@ -120,12 +120,9 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
 
             if (!mabc.discoveredPath.empty()) {
                 mabc.discoveredPath.erase(mabc.discoveredPath.begin());
-                auto pivot = mabc.customFindMotionPivot(mabc.module, mabc.discoveredPath.front().first, Any);
-                mabc.console << "Pivot: " << pivot->position << "\n";
-                mabc.sendHMessage(new PLSMessage(mabc.discoveredPath.front().first, mabc.module->position), module->getInterface(pivot->position), 1000, 100);
-                getScheduler()->schedule(new Catoms3DRotationStartEvent(
-                    getScheduler()->now() + 1000, mabc.module, pivot, mabc.discoveredPath.front().first,
-                    RotationLinkType::Any, false));
+                mabc.pivot = mabc.customFindMotionPivot(mabc.module, mabc.discoveredPath.front().first, Any);
+                mabc.console << "Pivot: " << mabc.pivot->position << "\n";
+                mabc.sendHMessage(new PLSMessage(mabc.discoveredPath.front().first, mabc.module->position), module->getInterface(mabc.pivot->position), 1000, 100);
             } else {
                 mabc.console << "Path is empty.\n";
             }
@@ -159,6 +156,9 @@ void PLSMessage::handle(BaseSimulator::BlockCode *bc) {
 void GLOMessage::handle(BaseSimulator::BlockCode *bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
 
+    getScheduler()->schedule(new Catoms3DRotationStartEvent(
+        getScheduler()->now() + 1000, mabc.module, mabc.pivot, mabc.discoveredPath.front().first,
+        RotationLinkType::Any, false));
     // // If this catom is the destination, stop routing.
     // if (mabc.module->position == dstPos) {
     //     // Optionally, handle locally or assert

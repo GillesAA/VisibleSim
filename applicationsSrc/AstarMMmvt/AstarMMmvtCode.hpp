@@ -56,6 +56,7 @@
      World *world;
      Lattice *lattice;
      Catoms3DBlock *module = nullptr;
+     Catoms3DBlock *pivot = nullptr;
 
      // Constructor and destructor
      AstarMMmvt(Catoms3DBlock *host);
