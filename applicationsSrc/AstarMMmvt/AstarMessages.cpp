@@ -122,8 +122,9 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
                 mabc.discoveredPath.erase(mabc.discoveredPath.begin());
                 auto pivot = mabc.customFindMotionPivot(mabc.module, mabc.discoveredPath.front().first, Any);
                 mabc.console << "Pivot: " << pivot->position << "\n";
+                mabc.sendHMessage(new PLSMessage(mabc.discoveredPath.front().first, mabc.module->position), module->getInterface(pivot->position), 1000, 100);
                 getScheduler()->schedule(new Catoms3DRotationStartEvent(
-                    getScheduler()->now() + 1000, mabc.module, mabc.discoveredPath.front().first,
+                    getScheduler()->now() + 1000, mabc.module, pivot, mabc.discoveredPath.front().first,
                     RotationLinkType::Any, false));
             } else {
                 mabc.console << "Path is empty.\n";
@@ -137,34 +138,48 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
 
 void PLSMessage::handle(BaseSimulator::BlockCode *bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
+    P2PNetworkInterface* sender = mabc.module->getInterface(senderPos);
+    mabc.console << "PLS\n";
 
-
+    if (mabc.moduleLightState) {
+        if(mabc.trafficQ.empty()) {
+            mabc.sendHMessage(new GLOMessage(), sender, 1000, 100);
+        }
+        else {
+            mabc.trafficQ.push(sender);
+            mabc.sendHMessage(new GLOMessage(), mabc.trafficQ.front(), 1000, 100);
+            mabc.trafficQ.pop();
+        }
+    }
+    else {
+        mabc.trafficQ.push(sender);
+    }
 }
 
-// void GLOMessage::handle(BaseSimulator::BlockCode *bc) {
-//     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
+void GLOMessage::handle(BaseSimulator::BlockCode *bc) {
+    AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
 
-//     // If this catom is the destination, stop routing.
-//     if (mabc.module->position == dstPos) {
-//         // Optionally, handle locally or assert
-//         VS_ASSERT(false && "route() called at destination");
-//         return;
-//     }
+    // // If this catom is the destination, stop routing.
+    // if (mabc.module->position == dstPos) {
+    //     // Optionally, handle locally or assert
+    //     VS_ASSERT(false && "route() called at destination");
+    //     return;
+    // }
 
-//     // Attempt to send directly to the destination if it's a neighbor
-//     P2PNetworkInterface* dstItf = mabc.module->getInterface(dstPos);
-//     if (dstItf && dstItf->isConnected()) {
-//         mabc.sendHMessage(this->clone(), dstItf, MSG_DELAY, 0);
-//         return;
-//     }
+    // // Attempt to send directly to the destination if it's a neighbor
+    // P2PNetworkInterface* dstItf = mabc.module->getInterface(dstPos);
+    // if (dstItf && dstItf->isConnected()) {
+    //     mabc.sendHMessage(this->clone(), dstItf, MSG_DELAY, 0);
+    //     return;
+    // }
 
-//     // If direct send fails, try sending to any connected neighbor (broadcast-like)
-//     for (int i = 0; i < mabc.module->getNbInterfaces(); ++i) {
-//         P2PNetworkInterface* itf = mabc.module->getInterface(i);
-//         if (itf && itf->isConnected()) {
-//             mabc.sendHMessage(this->clone(), itf, MSG_DELAY, 0);
-//         }
-//     }
+    // // If direct send fails, try sending to any connected neighbor (broadcast-like)
+    // for (int i = 0; i < mabc.module->getNbInterfaces(); ++i) {
+    //     P2PNetworkInterface* itf = mabc.module->getInterface(i);
+    //     if (itf && itf->isConnected()) {
+    //         mabc.sendHMessage(this->clone(), itf, MSG_DELAY, 0);
+    //     }
+    // }
 
-//     // You may add logic to prevent infinite forwarding or track visited nodes if needed
-// }
+    // You may add logic to prevent infinite forwarding or track visited nodes if needed
+}

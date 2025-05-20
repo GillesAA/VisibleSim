@@ -52,12 +52,14 @@ class GraphMergeMessage : public HandleableMessage {
 class PLSMessage : public HandleableMessage {
     protected:
      Cell3DPosition tPos;
+     Cell3DPosition senderPos;
+
  
     public:
-     PLSMessage(Cell3DPosition _tPos)
-         : HandleableMessage(), tPos(_tPos){};
+     PLSMessage(Cell3DPosition _tPos, Cell3DPosition sPos)
+         : HandleableMessage(), tPos(_tPos), senderPos(sPos) {};
  
-     ~PLSMessage() override = default;;
+     virtual ~PLSMessage() {};
  
      void handle(BaseSimulator::BlockCode *) override;
      Message *clone() const override { return new PLSMessage(*this); }
@@ -66,17 +68,16 @@ class PLSMessage : public HandleableMessage {
 
 class GLOMessage : public HandleableMessage {
     protected:
-     Cell3DPosition srcPos;
  
     public:
-     GLOMessage(Cell3DPosition _srcPos)
-         : HandleableMessage(), srcPos(_srcPos){};
+     GLOMessage()
+         : HandleableMessage() {};
  
-     ~GLOMessage() override = default;;
+     virtual ~GLOMessage() {};
  
      void handle(BaseSimulator::BlockCode *) override;
      Message *clone() const override { return new GLOMessage(*this); }
-     string getName() const override { return "GLOMessage{" + srcPos.to_string() + "}"; }
+     string getName() const override { return "GLOMessage"; }
  };
 
  class FTRMessage : public HandleableMessage {
