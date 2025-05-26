@@ -162,9 +162,7 @@ vector<Cell3DPosition> Lattice::getFreeNeighborCells(const Cell3DPosition &pos) 
 
 vector<Cell3DPosition> Lattice::getNeighborhood(const Cell3DPosition &pos) const {
     vector<Cell3DPosition> neighborhood;
-    const vector<Cell3DPosition> &relativeNCells =
-            getRelativeConnectivity(pos);
-
+    const vector<Cell3DPosition> &relativeNCells = getRelativeConnectivity(pos);
     for (const Cell3DPosition &p : relativeNCells) { // Check if each neighbor cell is in grid
         Cell3DPosition v = pos + p;
         if (isInGrid(v)) {
