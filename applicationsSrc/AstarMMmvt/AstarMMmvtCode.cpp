@@ -159,9 +159,9 @@ Catoms3DBlock* AstarMMmvt::customFindMotionPivot(const Catoms3DBlock* m, const C
     if (pair.second->getMRLT() == faceReq or faceReq == RotationLinkType::Any)
     return pair.first;
     }
-    
+
     return NULL;
-    }
+}
 
 
 void AstarMMmvt::onMotionEnd() {
@@ -169,7 +169,6 @@ void AstarMMmvt::onMotionEnd() {
     if(moduleState == MOVING or moduleState == BRIDGE) {
         module->setColor(ORANGE);
         if (!discoveredPath.empty()){
-            Cell3DPosition nextPosition;
             while (!discoveredPath.empty() && discoveredPath.front().first == module->position) {
                 discoveredPath.erase(discoveredPath.begin());
             }
@@ -188,8 +187,25 @@ void AstarMMmvt::onMotionEnd() {
             console << "Current Position: " << module -> position << "\n";
             console << "Next Position: " << nextPosition << "\n";
             discoveredPath.erase(discoveredPath.begin()); // Remove it from the path
-            getScheduler()->schedule(new Catoms3DRotationStartEvent(getScheduler()->now() + 1000, module, nextPosition, 
-            RotationLinkType::Any, false));
+            pivot = customFindMotionPivot(module, nextPosition, Any);
+            console << "Pivot: " << pivot->position << "\n";
+            if(pivot == prevpivot){
+                getScheduler()->schedule(new Catoms3DRotationStartEvent(
+                    getScheduler()->now() + 1000, module, pivot, nextPosition,
+                    RotationLinkType::Any, false));
+            }          
+            else if (prevpivot == nullptr) {
+                cout << "PLSSENDING\n";
+                sendHMessage(new PLSMessage(nextPosition, module->position), module->getInterface(pivot->position), 1000, 100);
+            }
+            else {
+                cout << "FTRSENDING\n";
+                sendHMessage(new FTRMessage(), module->getInterface(prevpivot->position), 1000, 100);
+                sendHMessage(new PLSMessage(nextPosition, module->position), module->getInterface(pivot->position), 1000, 100);
+            }
+        }
+        else {
+            sendHMessage(new FTRMessage(), module->getInterface(prevpivot->position), 1000, 100);
         }
     }
 }

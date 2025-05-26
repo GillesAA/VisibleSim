@@ -57,6 +57,8 @@
      Lattice *lattice;
      Catoms3DBlock *module = nullptr;
      Catoms3DBlock *pivot = nullptr;
+     Catoms3DBlock *prevpivot = nullptr;
+     Cell3DPosition nextPosition;
 
      // Constructor and destructor
      AstarMMmvt(Catoms3DBlock *host);

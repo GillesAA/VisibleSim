@@ -82,14 +82,16 @@ class GLOMessage : public HandleableMessage {
 
  class FTRMessage : public HandleableMessage {
     protected:
-    public:
-     FTRMessage() : HandleableMessage(){};
  
-     ~FTRMessage(){};
+    public:
+     FTRMessage()
+         : HandleableMessage() {};
+ 
+     virtual ~FTRMessage() {};
  
      void handle(BaseSimulator::BlockCode *) override;
      Message *clone() const override { return new FTRMessage(*this); }
-     string getName() const override { return "FTRMessage{}"; }
+     string getName() const override { return "FTRMessage"; }
  };
     
 #endif

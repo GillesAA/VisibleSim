@@ -73,10 +73,18 @@ void GraphBuildMessage::handle(BaseSimulator::BlockCode* bc) {
     }
 }
 
+// static bool areSamePivotPositions(Catoms3DBlock* a, Catoms3DBlock* b) {
+//     if (!a || !b) {
+//         std::cout << "Null pivot detected! a=" << a << ", b=" << b << "\n";
+//         return false;
+//     }
+//     return a && b && (a->position == b->position);
+// }
+
+
 void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
 
-    Catoms3DBlock* module = mabc.module;
     mabc.mergeGraphEdges(mabc.graphEdges, graphEdgesData);
     mabc.nbWaitedAnswers--;
     mabc.console << "rec. Ack(" << mabc.nbWaitedAnswers << ") from unknown sender\n"; // or retrieve sender separately if needed
@@ -120,9 +128,23 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
 
             if (!mabc.discoveredPath.empty()) {
                 mabc.discoveredPath.erase(mabc.discoveredPath.begin());
-                mabc.pivot = mabc.customFindMotionPivot(mabc.module, mabc.discoveredPath.front().first, Any);
+                mabc.nextPosition = mabc.discoveredPath.front().first;
+                mabc.pivot = mabc.customFindMotionPivot(mabc.module, mabc.nextPosition, Any);
                 mabc.console << "Pivot: " << mabc.pivot->position << "\n";
-                mabc.sendHMessage(new PLSMessage(mabc.discoveredPath.front().first, mabc.module->position), module->getInterface(mabc.pivot->position), 1000, 100);
+                if(mabc.pivot == mabc.prevpivot){
+                    getScheduler()->schedule(new Catoms3DRotationStartEvent(
+                        getScheduler()->now() + 1000, mabc.module, mabc.pivot, mabc.nextPosition,
+                        RotationLinkType::Any, false));
+                }          
+                else if (mabc.prevpivot == nullptr) {
+                    cout << "PLSSENDING\n";
+                    mabc.sendHMessage(new PLSMessage(mabc.nextPosition, mabc.module->position), mabc.module->getInterface(mabc.pivot->position), 1000, 100);
+                }
+                else {
+                    cout << "FTRSENDING\n";
+                    mabc.sendHMessage(new FTRMessage(), mabc.module->getInterface(mabc.prevpivot->position), 1000, 100);
+                    mabc.sendHMessage(new PLSMessage(mabc.nextPosition, mabc.module->position), mabc.module->getInterface(mabc.pivot->position), 1000, 100);
+                }
             } else {
                 mabc.console << "Path is empty.\n";
             }
@@ -133,6 +155,7 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
     }
 }
 
+
 void PLSMessage::handle(BaseSimulator::BlockCode *bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
     P2PNetworkInterface* sender = mabc.module->getInterface(senderPos);
@@ -141,11 +164,15 @@ void PLSMessage::handle(BaseSimulator::BlockCode *bc) {
     if (mabc.moduleLightState) {
         if(mabc.trafficQ.empty()) {
             mabc.sendHMessage(new GLOMessage(), sender, 1000, 100);
+            mabc.moduleLightState = false;
+            mabc.module->setColor(RED);
         }
         else {
             mabc.trafficQ.push(sender);
             mabc.sendHMessage(new GLOMessage(), mabc.trafficQ.front(), 1000, 100);
             mabc.trafficQ.pop();
+            mabc.moduleLightState = false;
+            mabc.module->setColor(RED);
         }
     }
     else {
@@ -155,9 +182,9 @@ void PLSMessage::handle(BaseSimulator::BlockCode *bc) {
 
 void GLOMessage::handle(BaseSimulator::BlockCode *bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
-
+    mabc.prevpivot = mabc.pivot;
     getScheduler()->schedule(new Catoms3DRotationStartEvent(
-        getScheduler()->now() + 1000, mabc.module, mabc.pivot, mabc.discoveredPath.front().first,
+        getScheduler()->now() + 1000, mabc.module, mabc.pivot, mabc.nextPosition,
         RotationLinkType::Any, false));
     // // If this catom is the destination, stop routing.
     // if (mabc.module->position == dstPos) {
@@ -182,4 +209,10 @@ void GLOMessage::handle(BaseSimulator::BlockCode *bc) {
     // }
 
     // You may add logic to prevent infinite forwarding or track visited nodes if needed
+}
+
+void FTRMessage::handle(BaseSimulator::BlockCode *bc) {
+    AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
+    mabc.console << "FTR\n";
+    mabc.module->setColor(GREEN);
 }
