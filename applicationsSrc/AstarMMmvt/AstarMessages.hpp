@@ -32,7 +32,7 @@ class GraphBuildMessage : public HandleableMessage {
         virtual void handle(BaseSimulator::BlockCode* bc) override;
         virtual Message* clone() const override {return new GraphBuildMessage(*this);}
         virtual std::string getName() const override { return "GraphBuildMessage"; }
-    };
+};
 
 class GraphMergeMessage : public HandleableMessage {
     protected:
@@ -82,16 +82,17 @@ class GLOMessage : public HandleableMessage {
 
  class FTRMessage : public HandleableMessage {
     protected:
- 
+    Cell3DPosition senderInPos;
+    std::vector<std::pair<Cell3DPosition, Cell3DPosition>> prevDiscoveredPath;
     public:
-     FTRMessage()
-         : HandleableMessage() {};
+     FTRMessage(std::vector<std::pair<Cell3DPosition, Cell3DPosition>> pDP, Cell3DPosition sIPos)
+         : HandleableMessage(), prevDiscoveredPath(pDP), senderInPos(sIPos) {};
  
      virtual ~FTRMessage() {};
  
      void handle(BaseSimulator::BlockCode *) override;
      Message *clone() const override { return new FTRMessage(*this); }
-     string getName() const override { return "FTRMessage"; }
+     string getName() const override { return "FTRMessage" + senderInPos.to_string(); }
  };
     
 #endif

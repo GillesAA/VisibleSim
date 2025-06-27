@@ -46,10 +46,12 @@
      std::map<Cell3DPosition, std::vector<std::pair<Cell3DPosition, Cell3DPosition>>> graphEdges;
      std::map<int, std::vector<int>> graphConnectors;
      std::vector<std::pair<Cell3DPosition, Cell3DPosition>> discoveredPath;
+     std::vector<std::pair<Cell3DPosition, Cell3DPosition>> inPath;
      Cell3DPosition currentTarget = Cell3DPosition(20, 19, 0);
      States moduleState = STATIONARY;
      bool moduleLightState = true;
      std::queue<P2PNetworkInterface*> trafficQ;
+     Cell3DPosition inPos;
 
      static std::queue<std::array<int, 3>> targetQueue;
      Scheduler *scheduler;
@@ -130,7 +132,9 @@
 
      Catoms3DBlock *customFindMotionPivot(const Catoms3DBlock *m, const Cell3DPosition &tPos, RotationLinkType faceReq);
 
-     #define SET_GREEN_LIGHT(x) setGreenLight(x, __LINE__)
+     vector<Catoms3DBlock *> findNextProbingPoints(const Cell3DPosition &targetPos, const Cell3DPosition &pivotPos);
+
+#define SET_GREEN_LIGHT(x) setGreenLight(x, __LINE__)
     /**
      * Changes the light state of a pivot and take the appriopriate action
      */

@@ -142,7 +142,7 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
                 }
                 else {
                     cout << "FTRSENDING\n";
-                    mabc.sendHMessage(new FTRMessage(), mabc.module->getInterface(mabc.prevpivot->position), 1000, 100);
+                    mabc.sendHMessage(new FTRMessage(mabc.discoveredPath, mabc.inPos), mabc.module->getInterface(mabc.prevpivot->position), 1000, 100);
                     mabc.sendHMessage(new PLSMessage(mabc.nextPosition, mabc.module->position), mabc.module->getInterface(mabc.pivot->position), 1000, 100);
                 }
             } else {
@@ -159,7 +159,6 @@ void GraphMergeMessage::handle(BaseSimulator::BlockCode* bc) {
 void PLSMessage::handle(BaseSimulator::BlockCode *bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
     P2PNetworkInterface* sender = mabc.module->getInterface(senderPos);
-    mabc.console << "PLS\n";
 
     if (mabc.moduleLightState) {
         if(mabc.trafficQ.empty()) {
@@ -186,33 +185,115 @@ void GLOMessage::handle(BaseSimulator::BlockCode *bc) {
     getScheduler()->schedule(new Catoms3DRotationStartEvent(
         getScheduler()->now() + 1000, mabc.module, mabc.pivot, mabc.nextPosition,
         RotationLinkType::Any, false));
-    // // If this catom is the destination, stop routing.
-    // if (mabc.module->position == dstPos) {
-    //     // Optionally, handle locally or assert
-    //     VS_ASSERT(false && "route() called at destination");
-    //     return;
-    // }
-
-    // // Attempt to send directly to the destination if it's a neighbor
-    // P2PNetworkInterface* dstItf = mabc.module->getInterface(dstPos);
-    // if (dstItf && dstItf->isConnected()) {
-    //     mabc.sendHMessage(this->clone(), dstItf, MSG_DELAY, 0);
-    //     return;
-    // }
-
-    // // If direct send fails, try sending to any connected neighbor (broadcast-like)
-    // for (int i = 0; i < mabc.module->getNbInterfaces(); ++i) {
-    //     P2PNetworkInterface* itf = mabc.module->getInterface(i);
-    //     if (itf && itf->isConnected()) {
-    //         mabc.sendHMessage(this->clone(), itf, MSG_DELAY, 0);
-    //     }
-    // }
-
-    // You may add logic to prevent infinite forwarding or track visited nodes if needed
 }
 
 void FTRMessage::handle(BaseSimulator::BlockCode *bc) {
     AstarMMmvt& mabc = *static_cast<AstarMMmvt*>(bc);
-    mabc.console << "FTR\n";
+    mabc.moduleLightState = true;
     mabc.module->setColor(GREEN);
+    if(!mabc.trafficQ.empty()) {
+        mabc.sendHMessage(new GLOMessage(), mabc.trafficQ.front(), 1000, 100);
+        mabc.trafficQ.pop();
+        mabc.moduleLightState = false;
+        mabc.module->setColor(RED);
+    }
+    if(mabc.module->position.pt[0] == senderInPos.pt[0] && mabc.module->position.pt[1] == senderInPos.pt[1] && mabc.module->position.pt[2] == senderInPos.pt[2] + 1){
+        mabc.console << "Moving\n";
+        bool matchFound = false;
+        for (auto& pos : mabc.module->getAllMotions()) {
+            // Find the position in the path (matching by .first)
+            auto it = std::find_if(prevDiscoveredPath.begin(), prevDiscoveredPath.end(),
+                                   [&](const std::pair<Cell3DPosition, Cell3DPosition>& p) {
+                                       return p.first == pos.first;
+                                   });
+        
+            if (it != prevDiscoveredPath.end()) {
+                prevDiscoveredPath.erase(prevDiscoveredPath.begin(), it + 1);
+        
+                // Start moving from the new head of the path
+                mabc.console << "Path truncated at " << pos.first << ". New path:\n";
+
+                mabc.inPath = prevDiscoveredPath;
+                for (const auto& p : mabc.inPath) {
+                    mabc.console << p.first << " via pivot " << p.second << "\n";
+                }
+        
+               
+                mabc.moduleState = MOVING;
+                matchFound = true;
+                break;
+            }
+        }
+        if (!matchFound) {
+            mabc.console << "No motion matches path. Running A* to closest node.\n";
+            for(auto &pos: mabc.module->getAllMotions()) {
+                mabc.graphEdges[mabc.module->position].emplace_back(pos.first, mabc.module->position);
+            }
+            std::vector<Cell3DPosition> candidateGoals;
+            mabc.console << "PATH: ";
+            for (const auto& p : prevDiscoveredPath){
+                candidateGoals.push_back(p.first);
+                mabc.console << p.first << ", ";
+            }
+            mabc.console << "\n";
+            Cell3DPosition current = mabc.module->position;
+            Cell3DPosition closestGoal = candidateGoals.front();
+            int minH = mabc.heuristic(closestGoal, current);
+
+            for (const Cell3DPosition& goal : candidateGoals) {
+                int h = mabc.heuristic(goal, current);
+                if (h < minH) {
+                    minH = h;
+                    closestGoal = goal;
+                }
+            }
+            mabc.console << current << "\n";
+            std::vector<std::pair<Cell3DPosition, Cell3DPosition>> newPath = 
+                mabc.a_star(mabc.graphEdges, current, closestGoal);
+
+            // truncate the prevPath to remove points before the closestGoal    
+            auto it = std::find_if(prevDiscoveredPath.begin(), prevDiscoveredPath.end(),
+                        [&](const std::pair<Cell3DPosition, Cell3DPosition>& p) {
+                            return p.first == closestGoal;
+                        });
+
+            if (it != prevDiscoveredPath.end()) {
+                std::vector<std::pair<Cell3DPosition, Cell3DPosition>> remainingPath(it, prevDiscoveredPath.end());
+
+                // prepend newPath to remainingPath
+                newPath.insert(newPath.end(), remainingPath.begin() + 1, remainingPath.end()); // +1 to skip duplicate closestGoal
+
+                mabc.inPath = newPath;
+
+                mabc.console << "Reconnected path:\n";
+                for (const auto& p : mabc.inPath) {
+                    mabc.console << p.first << " via pivot " << p.second << "\n";
+                }
+
+                mabc.moduleState = MOVING;
+            }
+            if (!mabc.inPath.empty()) {
+                mabc.inPath.erase(mabc.inPath.begin());
+                mabc.nextPosition = mabc.inPath.front().first;
+                mabc.pivot = mabc.customFindMotionPivot(mabc.module, mabc.nextPosition, Any);
+                mabc.console << "Pivot: " << mabc.pivot->position << "\n";
+                if(mabc.pivot == mabc.prevpivot){
+                    getScheduler()->schedule(new Catoms3DRotationStartEvent(
+                        getScheduler()->now() + 1000, mabc.module, mabc.pivot, mabc.nextPosition,
+                        RotationLinkType::Any, false));
+                }          
+                else if (mabc.prevpivot == nullptr) {
+                    cout << "PLSSENDING\n";
+                    mabc.sendHMessage(new PLSMessage(mabc.nextPosition, mabc.module->position), mabc.module->getInterface(mabc.pivot->position), 1000, 100);
+                }
+                else {
+                    cout << "FTRSENDING\n";
+                    mabc.sendHMessage(new FTRMessage(mabc.inPath, mabc.inPos), mabc.module->getInterface(mabc.prevpivot->position), 1000, 100);
+                    mabc.sendHMessage(new PLSMessage(mabc.nextPosition, mabc.module->position), mabc.module->getInterface(mabc.pivot->position), 1000, 100);
+                }
+            } else {
+                mabc.console << "Path is empty.\n";
+            }
+        }
+    }
 }

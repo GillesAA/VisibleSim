@@ -16,6 +16,8 @@ AstarMMmvt::AstarMMmvt(Catoms3DBlock *host): Catoms3DBlockCode(host) {
 
 void AstarMMmvt::startup() {
     // console << "start\n";
+    inPos = module->position;
+    console << inPos << "\n";
     if (isfree) {
         moduleState = FREE;
         if (!AstarMMmvt::targetQueue.empty()) {
@@ -163,6 +165,22 @@ Catoms3DBlock* AstarMMmvt::customFindMotionPivot(const Catoms3DBlock* m, const C
     return NULL;
 }
 
+vector<Catoms3DBlock *> AstarMMmvt::findNextProbingPoints(const Cell3DPosition &targetPos,
+    const Cell3DPosition &pivotPos) {
+    vector<Catoms3DBlock *> latchingPoints;
+    for (auto lp: BaseSimulator::getWorld()->lattice->getActiveNeighborCells(targetPos)) {
+        cout << "IT\n";
+        AstarMMmvt& rlp = *static_cast<AstarMMmvt *>( BaseSimulator::getWorld()->lattice->getBlock(lp)->blockCode);
+        if (rlp.moduleState == FREE || rlp.moduleState == BRIDGE) {
+            continue;
+        }
+        if (lp != pivotPos and lp != module->position and not rlp.rotating) {
+            latchingPoints.push_back(static_cast<Catoms3DBlock *>( BaseSimulator::getWorld()->lattice->getBlock(lp)));
+        }
+    }
+    return latchingPoints;
+}
+
 
 void AstarMMmvt::onMotionEnd() {
     console << " has reached its destination\n";
@@ -189,23 +207,33 @@ void AstarMMmvt::onMotionEnd() {
             discoveredPath.erase(discoveredPath.begin()); // Remove it from the path
             pivot = customFindMotionPivot(module, nextPosition, Any);
             console << "Pivot: " << pivot->position << "\n";
+            
+            std::vector<Catoms3DBlock*> latchingPoints = findNextProbingPoints(nextPosition, pivot->position);
+
+            // Print each latching point's position
+            console << "Latching Point at: ";
+            for (Catoms3DBlock* block : latchingPoints) {
+                if (block) {
+                    console << block->position;
+                } 
+            }
+            console << "\n";
+
             if(pivot == prevpivot){
                 getScheduler()->schedule(new Catoms3DRotationStartEvent(
                     getScheduler()->now() + 1000, module, pivot, nextPosition,
                     RotationLinkType::Any, false));
             }          
             else if (prevpivot == nullptr) {
-                cout << "PLSSENDING\n";
                 sendHMessage(new PLSMessage(nextPosition, module->position), module->getInterface(pivot->position), 1000, 100);
             }
             else {
-                cout << "FTRSENDING\n";
-                sendHMessage(new FTRMessage(), module->getInterface(prevpivot->position), 1000, 100);
+                sendHMessage(new FTRMessage(discoveredPath, inPos), module->getInterface(prevpivot->position), 1000, 100);
                 sendHMessage(new PLSMessage(nextPosition, module->position), module->getInterface(pivot->position), 1000, 100);
             }
         }
         else {
-            sendHMessage(new FTRMessage(), module->getInterface(prevpivot->position), 1000, 100);
+            sendHMessage(new FTRMessage(discoveredPath, inPos), module->getInterface(prevpivot->position), 1000, 100);
         }
     }
 }
