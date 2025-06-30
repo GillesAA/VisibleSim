@@ -19,4 +19,8 @@ void FPCheckMessage::handle(BaseSimulator::BlockCode* bc) {
             }
         }
     }
+    if (result.empty()) {
+        mabc.console << "Catom at: " << senderPos << " Not connected\n";
+        mabc.module->setColor(RED);
+    }
 }
