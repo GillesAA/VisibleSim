@@ -22,7 +22,7 @@ void mvtConnectivity::startup() {
     for (const auto& [pos, connectorID] : module->getAllFreeNeighborPos()) {
         if (Catoms3DMotionEngine::isBetweenOppositeOrDiagonalBlocks(world->lattice, pos)) continue;
         graphEdges[pos];
-        console << pos << ", " << static_cast<int>(connectorID) << "\n";
+        console << "Free Position: " << static_cast<int>(connectorID) << ", " << pos << "\n";
         for (const auto&[pos1, connectorIDto] : module->getAllFreeNeighborPos()) {
             const Catoms3DMotionRulesLink* linkH = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, HexaFace);
             const Catoms3DMotionRulesLink* linkO = Catoms3DMotionEngine::findPivotConnectorLink(module, connectorID, connectorIDto, OctaFace);

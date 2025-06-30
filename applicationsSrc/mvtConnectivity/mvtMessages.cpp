@@ -13,14 +13,14 @@ void FPCheckMessage::handle(BaseSimulator::BlockCode* bc) {
 
         auto it = neighGraph.find(key);
         if (it != neighGraph.end()) {
-            if (!it->second.empty()) {
+            if (!pair.second.empty()) {
                 result.push_back(key);
                 mabc.console << "For the catom at: " << senderPos << " The pos: " << key << " is in common\n";
             }
         }
     }
     if (result.empty()) {
-        mabc.console << "Catom at: " << senderPos << " Not connected\n";
+        mabc.console << "Catom: " << sourceInterface->hostBlock->blockId << " Not connected\n";
         mabc.module->setColor(RED);
     }
 }
